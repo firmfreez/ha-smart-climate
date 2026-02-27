@@ -1,0 +1,13 @@
+{
+  "domain": "smart_climate",
+  "name": "Умный климат",
+  "version": "0.1.0",
+  "documentation": "https://github.com/firmfreez/HaSmartClimate#readme",
+  "issue_tracker": "https://github.com/firmfreez/HaSmartClimate/issues",
+  "codeowners": [
+    "@firmfreez"
+  ],
+  "iot_class": "local_push",
+  "config_flow": true,
+  "integration_type": "service"
+}

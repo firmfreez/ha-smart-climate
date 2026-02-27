@@ -1,0 +1,76 @@
+{
+  "title": "Умный климат",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Базовая настройка",
+        "description": "Настройте источник наружной температуры и агрегацию по комнате.",
+        "data": {
+          "outdoor_source_type": "Источник наружной температуры",
+          "outdoor_weather": "Сущность weather",
+          "outdoor_sensor": "Наружный сенсор",
+          "ac_missing_outdoor_policy": "Политика кондиционеров без наружной температуры",
+          "aggregation": "Агрегация температуры комнаты"
+        }
+      },
+      "room": {
+        "title": "Добавить комнату",
+        "description": "Настройте сенсоры и устройства для комнаты.",
+        "data": {
+          "room_name": "Название комнаты",
+          "temp_sensors": "Датчики температуры",
+          "primary_climates": "Основные climate устройства (категория 1)",
+          "ac_climates": "Кондиционеры/тепловые насосы (категория 3)",
+          "shared_climates": "Shared climate устройства",
+          "dumb_devices_json": "JSON dumb-устройств",
+          "add_another_room": "Добавить еще комнату"
+        }
+      }
+    },
+    "error": {
+      "invalid_room_json": "Некорректный JSON конфигурации комнаты",
+      "duplicate_room": "Комната с таким именем уже существует"
+    },
+    "abort": {
+      "single_instance_allowed": "Поддерживается только один экземпляр Smart Climate"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Расширенные параметры",
+        "description": "Настройка логики управления и per-room overrides.",
+        "data": {
+          "mode": "Режим работы",
+          "type": "Профиль управления",
+          "global_target": "Глобальная целевая температура",
+          "global_tolerance": "Глобальная толерантность",
+          "tolerance": "Толерантность per-room по умолчанию",
+          "t_time": "Окно контроля T_time (сек)",
+          "update_interval": "Интервал обновления (сек)",
+          "max_offset": "Максимальная накрутка",
+          "step_offset": "Шаг накрутки",
+          "min_action_interval": "Мин. интервал между действиями на устройство (сек)",
+          "heat_small": "Порог small для нагрева",
+          "heat_medium": "Порог medium для нагрева",
+          "heat_big": "Порог big для нагрева",
+          "cool_small": "Порог small для охлаждения",
+          "cool_medium": "Порог medium для охлаждения",
+          "cool_big": "Порог big для охлаждения",
+          "min_outdoor_for_heatpump": "Мин. наружная температура для нагрева кондиционером",
+          "max_outdoor_for_cool": "Макс. наружная температура для охлаждения",
+          "after_reach_smart": "Поведение после достижения цели (climate)",
+          "after_reach_dumb": "Поведение после достижения цели (script)",
+          "shared_arbitration": "Арбитраж shared-устройств",
+          "priority_room": "ID приоритетной комнаты",
+          "per_room_targets_json": "Per-room target в JSON",
+          "per_room_tolerances_json": "Per-room tolerance в JSON",
+          "room_enabled_json": "Per-room enabled в JSON"
+        }
+      }
+    },
+    "error": {
+      "invalid_json": "Некорректный JSON в map-полях"
+    }
+  }
+}

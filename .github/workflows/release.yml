@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set integration version
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" custom_components/smart_climate/manifest.json
+          sed -i "s/VERSION = \".*\"/VERSION = \"${VERSION}\"/" custom_components/smart_climate/const.py
+
+      - name: Build HACS zip asset
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          zip -r "smart_climate-${VERSION}.zip" custom_components/smart_climate
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            smart_climate-${{ steps.version.outputs.value }}.zip
