@@ -65,7 +65,8 @@ jobs:
 
       - name: Build HACS zip asset
         run: |
-          zip -r "smart_climate.zip" custom_components/smart_climate
+          cd custom_components/smart_climate
+          zip -r ../../smart_climate.zip .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
