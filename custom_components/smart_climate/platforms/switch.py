@@ -39,10 +39,10 @@ class RoomEnabledSwitch(SmartClimateEntity, SwitchEntity, RestoreEntity):
             return bool(self.coordinator.data.get("rooms", {}).get(self._room_id, {}).get("enabled", True))
         return True
 
-    async def async_turn_on(self, **kwargs) -> None:  # noqa: ARG002
+    async def async_turn_on(self, **kwargs) -> None:
         await self.coordinator.async_set_room_enabled(self._room_id, True)
 
-    async def async_turn_off(self, **kwargs) -> None:  # noqa: ARG002
+    async def async_turn_off(self, **kwargs) -> None:
         await self.coordinator.async_set_room_enabled(self._room_id, False)
 
     async def async_added_to_hass(self) -> None:

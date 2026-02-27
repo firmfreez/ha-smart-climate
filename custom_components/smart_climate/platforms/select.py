@@ -40,7 +40,7 @@ class SmartClimateModeSelect(SmartClimateEntity, SelectEntity, RestoreEntity):
 
     _attr_name = "Mode"
     _attr_icon = "mdi:hvac"
-    _attr_options = [MODE_OFF, MODE_PER_ROOM, MODE_GLOBAL]
+    _attr_options = (MODE_OFF, MODE_PER_ROOM, MODE_GLOBAL)
 
     def __init__(self, coordinator: SmartClimateCoordinator) -> None:
         super().__init__(coordinator)
@@ -65,7 +65,7 @@ class SmartClimateTypeSelect(SmartClimateEntity, SelectEntity, RestoreEntity):
 
     _attr_name = "Type"
     _attr_icon = "mdi:rocket-launch"
-    _attr_options = [TYPE_NORMAL, TYPE_FAST, TYPE_EXTREME]
+    _attr_options = (TYPE_NORMAL, TYPE_FAST, TYPE_EXTREME)
 
     def __init__(self, coordinator: SmartClimateCoordinator) -> None:
         super().__init__(coordinator)

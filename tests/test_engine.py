@@ -1,6 +1,12 @@
 """Unit tests for decision engine."""
 
-from custom_components.smart_climate.const import PHASE_BOOST, PHASE_HOLD, TYPE_EXTREME, TYPE_FAST, TYPE_NORMAL
+from custom_components.smart_climate.const import (
+    PHASE_BOOST,
+    PHASE_HOLD,
+    TYPE_EXTREME,
+    TYPE_FAST,
+    TYPE_NORMAL,
+)
 from custom_components.smart_climate.engine import (
     Thresholds,
     next_phase_and_offset,
