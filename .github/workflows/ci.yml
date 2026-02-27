@@ -27,7 +27,7 @@ jobs:
         run: ruff check .
 
       - name: Pytest
-        run: pytest
+        run: PYTHONPATH=. pytest
 
   hassfest:
     runs-on: ubuntu-latest

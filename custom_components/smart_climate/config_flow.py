@@ -44,17 +44,17 @@ from .const import (
     CONF_PER_ROOM_TARGETS,
     CONF_PER_ROOM_TOLERANCES,
     CONF_PRIORITY_ROOM,
-    CONF_ROOMS,
     CONF_ROOM_DUMB_DEVICES,
     CONF_ROOM_ENABLED,
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_ROOM_TEMP_SENSORS,
+    CONF_ROOMS,
     CONF_SHARED_ARBITRATION,
     CONF_STEP_OFFSET,
+    CONF_T_TIME,
     CONF_TOLERANCE,
     CONF_TYPE,
-    CONF_T_TIME,
     CONF_UPDATE_INTERVAL,
     DEFAULT_AC_MISSING_OUTDOOR_POLICY,
     DEFAULT_AFTER_REACH_DUMB,
@@ -74,9 +74,9 @@ from .const import (
     DEFAULT_MIN_OUTDOOR_FOR_HEATPUMP,
     DEFAULT_MODE,
     DEFAULT_STEP_OFFSET,
+    DEFAULT_T_TIME,
     DEFAULT_TOLERANCE,
     DEFAULT_TYPE,
-    DEFAULT_T_TIME,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     MODE_GLOBAL,
@@ -179,7 +179,7 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_GLOBAL_TOLERANCE: DEFAULT_GLOBAL_TOLERANCE,
                     }
                     return self.async_create_entry(title="Умный климат", data=data)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 errors["base"] = "invalid_room_json"
 
         data_schema = vol.Schema(
