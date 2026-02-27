@@ -53,9 +53,9 @@ from .const import (
     CONF_ROOM_TEMP_SENSORS,
     CONF_SHARED_ARBITRATION,
     CONF_STEP_OFFSET,
-    CONF_T_TIME,
     CONF_TOLERANCE,
     CONF_TYPE,
+    CONF_T_TIME,
     CONF_UPDATE_INTERVAL,
     COORDINATOR_DEBOUNCE_SECONDS,
     DEFAULT_UPDATE_INTERVAL,
@@ -196,8 +196,8 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     def _opt(self, key: str) -> Any:
-        if key in self._overrides and self._overrides[key]:
-            return self._overrides[key]
+        if override := self._overrides.get(key):
+            return override
         if key in self.config_entry.options:
             return self.config_entry.options[key]
         if key in self.config_entry.data:
@@ -275,7 +275,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         async with self._lock:
             try:
                 return await self._async_run_control_cycle()
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 raise UpdateFailed(UPDATE_FAILED_WARNING) from err
 
     async def _async_run_control_cycle(self) -> dict[str, Any]:
