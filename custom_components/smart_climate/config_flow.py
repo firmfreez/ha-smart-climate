@@ -271,8 +271,16 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._entry = config_entry
+        self._selected_room_id: str | None = None
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        rooms = self._current_rooms()
+        menu_options = ["settings", "add_room"]
+        if rooms:
+            menu_options.extend(["edit_room_select", "delete_room_select"])
+        return self.async_show_menu(step_id="init", menu_options=menu_options)
+
+    async def async_step_settings(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -281,7 +289,9 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                 per_room_tolerances = self._parse_json_map(user_input.get("per_room_tolerances_json", "{}"), float)
                 room_enabled = self._parse_json_map(user_input.get("room_enabled_json", "{}"), bool)
 
-                options = {
+                options = dict(self._entry.options)
+                options.update(
+                    {
                     CONF_MODE: user_input[CONF_MODE],
                     CONF_TYPE: user_input[CONF_TYPE],
                     CONF_GLOBAL_TARGET: user_input[CONF_GLOBAL_TARGET],
@@ -311,7 +321,9 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                     CONF_PER_ROOM_TARGETS: per_room_targets,
                     CONF_PER_ROOM_TOLERANCES: per_room_tolerances,
                     CONF_ROOM_ENABLED: room_enabled,
-                }
+                    }
+                )
+                self._sanitize_room_dependent_options(options, set(self._room_ids()))
                 return self.async_create_entry(title="", data=options)
             except ValueError:
                 errors["base"] = "invalid_json"
@@ -461,7 +473,208 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
             }
         )
 
-        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+        return self.async_show_form(step_id="settings", data_schema=schema, errors=errors)
+
+    async def async_step_add_room(self, user_input: dict[str, Any] | None = None):
+        errors: dict[str, str] = {}
+        rooms = self._current_rooms()
+        if user_input is not None:
+            try:
+                room_id = slugify(user_input[CONF_ROOM_NAME])
+                if any(existing[CONF_ROOM_ID] == room_id for existing in rooms):
+                    errors[CONF_ROOM_NAME] = "duplicate_room"
+                else:
+                    room = self._build_room_payload(user_input, room_id=room_id)
+                    rooms.append(room)
+                    return self._create_entry_with_rooms(rooms)
+            except Exception:
+                errors["base"] = "invalid_room_json"
+
+        return self.async_show_form(
+            step_id="add_room",
+            data_schema=self._room_schema(),
+            errors=errors,
+        )
+
+    async def async_step_edit_room_select(self, user_input: dict[str, Any] | None = None):
+        rooms = self._current_rooms()
+        if not rooms:
+            return self.async_abort(reason="no_rooms")
+
+        room_ids = {room[CONF_ROOM_ID] for room in rooms}
+        if user_input is not None:
+            selected = user_input["room_id"]
+            if selected in room_ids:
+                self._selected_room_id = selected
+                return await self.async_step_edit_room()
+
+        schema = vol.Schema(
+            {
+                vol.Required("room_id"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[{"value": room[CONF_ROOM_ID], "label": room[CONF_ROOM_NAME]} for room in rooms],
+                        mode="dropdown",
+                    )
+                )
+            }
+        )
+        return self.async_show_form(step_id="edit_room_select", data_schema=schema)
+
+    async def async_step_edit_room(self, user_input: dict[str, Any] | None = None):
+        errors: dict[str, str] = {}
+        rooms = self._current_rooms()
+        selected = self._selected_room_id
+        room = next((item for item in rooms if item[CONF_ROOM_ID] == selected), None)
+        if room is None:
+            return self.async_abort(reason="room_not_found")
+
+        if user_input is not None:
+            try:
+                updated = self._build_room_payload(user_input, room_id=room[CONF_ROOM_ID])
+                updated_rooms = [
+                    updated if item[CONF_ROOM_ID] == room[CONF_ROOM_ID] else item
+                    for item in rooms
+                ]
+                return self._create_entry_with_rooms(updated_rooms)
+            except Exception:
+                errors["base"] = "invalid_room_json"
+
+        return self.async_show_form(
+            step_id="edit_room",
+            data_schema=self._room_schema(room),
+            errors=errors,
+        )
+
+    async def async_step_delete_room_select(self, user_input: dict[str, Any] | None = None):
+        rooms = self._current_rooms()
+        if not rooms:
+            return self.async_abort(reason="no_rooms")
+
+        room_ids = {room[CONF_ROOM_ID] for room in rooms}
+        if user_input is not None:
+            selected = user_input["room_id"]
+            if selected in room_ids:
+                self._selected_room_id = selected
+                return await self.async_step_delete_room_confirm()
+
+        schema = vol.Schema(
+            {
+                vol.Required("room_id"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[{"value": room[CONF_ROOM_ID], "label": room[CONF_ROOM_NAME]} for room in rooms],
+                        mode="dropdown",
+                    )
+                )
+            }
+        )
+        return self.async_show_form(step_id="delete_room_select", data_schema=schema)
+
+    async def async_step_delete_room_confirm(self, user_input: dict[str, Any] | None = None):
+        rooms = self._current_rooms()
+        selected = self._selected_room_id
+        room = next((item for item in rooms if item[CONF_ROOM_ID] == selected), None)
+        if room is None:
+            return self.async_abort(reason="room_not_found")
+
+        if user_input is not None:
+            if user_input.get("confirm_delete", False):
+                updated_rooms = [item for item in rooms if item[CONF_ROOM_ID] != room[CONF_ROOM_ID]]
+                return self._create_entry_with_rooms(updated_rooms)
+            return self.async_abort(reason="delete_cancelled")
+
+        schema = vol.Schema(
+            {
+                vol.Required("confirm_delete", default=False): bool,
+            }
+        )
+        return self.async_show_form(step_id="delete_room_confirm", data_schema=schema)
+
+    def _create_entry_with_rooms(self, rooms: list[dict[str, Any]]) -> config_entries.ConfigFlowResult:
+        options = dict(self._entry.options)
+        options[CONF_ROOMS] = rooms
+        self._sanitize_room_dependent_options(options, {room[CONF_ROOM_ID] for room in rooms})
+        return self.async_create_entry(title="", data=options)
+
+    def _room_ids(self) -> list[str]:
+        return [room[CONF_ROOM_ID] for room in self._current_rooms()]
+
+    def _current_rooms(self) -> list[dict[str, Any]]:
+        merged = {**self._entry.data, **self._entry.options}
+        rooms_data = merged.get(CONF_ROOMS, [])
+        return [dict(room) for room in rooms_data]
+
+    @staticmethod
+    def _build_room_payload(user_input: dict[str, Any], room_id: str) -> dict[str, Any]:
+        dumb_devices = parse_dumb_devices_json(user_input.get("dumb_devices_json", ""))
+        return {
+            CONF_ROOM_ID: room_id,
+            CONF_ROOM_NAME: user_input[CONF_ROOM_NAME],
+            CONF_ROOM_TEMP_SENSORS: user_input.get(CONF_ROOM_TEMP_SENSORS, []),
+            CONF_ROOM_HEAT_CATEGORY_1: user_input.get(CONF_ROOM_HEAT_CATEGORY_1, []),
+            CONF_ROOM_HEAT_CATEGORY_2: user_input.get(CONF_ROOM_HEAT_CATEGORY_2, []),
+            CONF_ROOM_HEAT_CATEGORY_3: user_input.get(CONF_ROOM_HEAT_CATEGORY_3, []),
+            CONF_ROOM_COOL_CATEGORY_1: user_input.get(CONF_ROOM_COOL_CATEGORY_1, []),
+            CONF_ROOM_COOL_CATEGORY_2: user_input.get(CONF_ROOM_COOL_CATEGORY_2, []),
+            CONF_ROOM_COOL_CATEGORY_3: user_input.get(CONF_ROOM_COOL_CATEGORY_3, []),
+            CONF_ROOM_WEATHER_SENSITIVE_CLIMATES: user_input.get(CONF_ROOM_WEATHER_SENSITIVE_CLIMATES, []),
+            CONF_ROOM_SHARED_CLIMATES: user_input.get(CONF_ROOM_SHARED_CLIMATES, []),
+            CONF_ROOM_DUMB_DEVICES: dumb_devices,
+        }
+
+    @staticmethod
+    def _room_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+        room = defaults or {}
+        return vol.Schema(
+            {
+                vol.Required(CONF_ROOM_NAME, default=room.get(CONF_ROOM_NAME, "")): TextSelector(TextSelectorConfig()),
+                vol.Required(
+                    CONF_ROOM_TEMP_SENSORS,
+                    default=room.get(CONF_ROOM_TEMP_SENSORS, []),
+                ): EntitySelector(EntitySelectorConfig(domain="sensor", multiple=True)),
+                vol.Optional(CONF_ROOM_HEAT_CATEGORY_1, default=room.get(CONF_ROOM_HEAT_CATEGORY_1, [])): EntitySelector(
+                    EntitySelectorConfig(domain="climate", multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_HEAT_CATEGORY_2, default=room.get(CONF_ROOM_HEAT_CATEGORY_2, [])): EntitySelector(
+                    EntitySelectorConfig(domain="climate", multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_HEAT_CATEGORY_3, default=room.get(CONF_ROOM_HEAT_CATEGORY_3, [])): EntitySelector(
+                    EntitySelectorConfig(domain="climate", multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_COOL_CATEGORY_1, default=room.get(CONF_ROOM_COOL_CATEGORY_1, [])): EntitySelector(
+                    EntitySelectorConfig(domain="climate", multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_COOL_CATEGORY_2, default=room.get(CONF_ROOM_COOL_CATEGORY_2, [])): EntitySelector(
+                    EntitySelectorConfig(domain="climate", multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_COOL_CATEGORY_3, default=room.get(CONF_ROOM_COOL_CATEGORY_3, [])): EntitySelector(
+                    EntitySelectorConfig(domain="climate", multiple=True)
+                ),
+                vol.Optional(
+                    CONF_ROOM_WEATHER_SENSITIVE_CLIMATES,
+                    default=room.get(CONF_ROOM_WEATHER_SENSITIVE_CLIMATES, []),
+                ): EntitySelector(EntitySelectorConfig(domain="climate", multiple=True)),
+                vol.Optional(CONF_ROOM_SHARED_CLIMATES, default=room.get(CONF_ROOM_SHARED_CLIMATES, [])): EntitySelector(
+                    EntitySelectorConfig(domain="climate", multiple=True)
+                ),
+                vol.Optional(
+                    "dumb_devices_json",
+                    default=json.dumps(room.get(CONF_ROOM_DUMB_DEVICES, []), ensure_ascii=False),
+                ): TextSelector(TextSelectorConfig(multiline=True)),
+            }
+        )
+
+    @staticmethod
+    def _sanitize_room_dependent_options(options: dict[str, Any], room_ids: set[str]) -> None:
+        for key in (CONF_PER_ROOM_TARGETS, CONF_PER_ROOM_TOLERANCES, CONF_ROOM_ENABLED):
+            value = options.get(key)
+            if not isinstance(value, dict):
+                options[key] = {}
+                continue
+            options[key] = {room_id: item for room_id, item in value.items() if room_id in room_ids}
+
+        priority = options.get(CONF_PRIORITY_ROOM, "")
+        if priority and priority not in room_ids:
+            options[CONF_PRIORITY_ROOM] = ""
 
     @staticmethod
     def _parse_json_map(raw: str, cast: type) -> dict[str, Any]:

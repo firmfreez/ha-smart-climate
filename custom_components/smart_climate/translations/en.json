@@ -44,28 +44,38 @@
     "step": {
       "init": {
         "title": "Advanced options",
-        "description": "Tune control logic and per-room overrides.",
+        "description": "Choose what you want to change.",
+        "menu_options": {
+          "settings": "Control settings",
+          "add_room": "Add room",
+          "edit_room_select": "Edit room",
+          "delete_room_select": "Delete room"
+        }
+      },
+      "settings": {
+        "title": "Control settings",
+        "description": "Main control logic, thresholds and per-room overrides.",
         "data": {
           "mode": "Work mode",
           "type": "Control profile",
           "global_target": "Global target temperature",
           "global_tolerance": "Global tolerance",
-          "tolerance": "Per-room fallback tolerance",
+          "tolerance": "Default per-room tolerance",
           "t_time": "Control window T_time (sec)",
           "update_interval": "Update interval (sec)",
-          "max_offset": "Max offset",
+          "max_offset": "Maximum offset",
           "step_offset": "Offset step",
           "min_action_interval": "Minimum interval per device (sec)",
-          "heat_small": "Heat small threshold",
-          "heat_medium": "Heat medium threshold",
-          "heat_big": "Heat big threshold",
-          "heat_category2_diff": "Heat diff to enable category 2",
-          "heat_category3_diff": "Heat diff to enable category 3",
-          "cool_small": "Cool small threshold",
-          "cool_medium": "Cool medium threshold",
-          "cool_big": "Cool big threshold",
-          "cool_category2_diff": "Cool diff to enable category 2",
-          "cool_category3_diff": "Cool diff to enable category 3",
+          "heat_small": "Heating small threshold",
+          "heat_medium": "Heating medium threshold",
+          "heat_big": "Heating big threshold",
+          "heat_category2_diff": "Heating diff to enable category 2",
+          "heat_category3_diff": "Heating diff to enable category 3",
+          "cool_small": "Cooling small threshold",
+          "cool_medium": "Cooling medium threshold",
+          "cool_big": "Cooling big threshold",
+          "cool_category2_diff": "Cooling diff to enable category 2",
+          "cool_category3_diff": "Cooling diff to enable category 3",
           "min_outdoor_for_heatpump": "Min outdoor temp for heat-pump heating",
           "max_outdoor_for_cool": "Max outdoor temp for cooling",
           "after_reach_smart": "After-reach behavior for climate devices",
@@ -75,11 +85,104 @@
           "per_room_targets_json": "Per-room targets JSON",
           "per_room_tolerances_json": "Per-room tolerances JSON",
           "room_enabled_json": "Per-room enabled JSON"
+        },
+        "data_description": {
+          "mode": "Off disables all automation. Per room uses room targets. Global uses one target for all rooms.",
+          "type": "Normal is balanced, Fast reaches target quicker, Extreme is most aggressive.",
+          "global_target": "Primary target temperature in Celsius.",
+          "global_tolerance": "Deadband around global target where no action is taken.",
+          "tolerance": "Default room deadband when room-specific tolerance is not set.",
+          "t_time": "How long boost phase may run before shifting behavior.",
+          "update_interval": "How often coordinator recalculates decisions.",
+          "max_offset": "Maximum setpoint correction applied during boost.",
+          "step_offset": "Correction increase per control cycle while boosting.",
+          "min_action_interval": "Rate limit for service calls per device.",
+          "heat_small": "Legacy threshold for small heating demand.",
+          "heat_medium": "Legacy threshold for medium heating demand.",
+          "heat_big": "Legacy threshold for big heating demand.",
+          "heat_category2_diff": "If target-current exceeds this value, category 2 joins heating.",
+          "heat_category3_diff": "If target-current exceeds this value, category 3 joins heating.",
+          "cool_small": "Legacy threshold for small cooling demand.",
+          "cool_medium": "Legacy threshold for medium cooling demand.",
+          "cool_big": "Legacy threshold for big cooling demand.",
+          "cool_category2_diff": "If current-target exceeds this value, category 2 joins cooling.",
+          "cool_category3_diff": "If current-target exceeds this value, category 3 joins cooling.",
+          "min_outdoor_for_heatpump": "Below this outdoor temp, weather-sensitive heating climates are blocked.",
+          "max_outdoor_for_cool": "Above this outdoor temp, weather-sensitive cooling climates are blocked.",
+          "after_reach_smart": "What to do with climate.* devices after target is reached.",
+          "after_reach_dumb": "What to do with script-driven devices after target is reached.",
+          "shared_arbitration": "How one shared climate chooses request from multiple rooms.",
+          "priority_room": "Room ID used only when arbitration is set to Priority room.",
+          "per_room_targets_json": "Map like {\"bedroom\": 22.5}. Overrides room target temperatures.",
+          "per_room_tolerances_json": "Map like {\"bedroom\": 0.4}. Overrides room tolerances.",
+          "room_enabled_json": "Map like {\"bedroom\": true}. Enables/disables automation per room."
+        }
+      },
+      "add_room": {
+        "title": "Add room",
+        "description": "Create one more room and its managed devices.",
+        "data": {
+          "room_name": "Room name",
+          "temp_sensors": "Temperature sensors",
+          "heat_category_1": "Heating category 1 devices",
+          "heat_category_2": "Heating category 2 devices",
+          "heat_category_3": "Heating category 3 devices",
+          "cool_category_1": "Cooling category 1 devices",
+          "cool_category_2": "Cooling category 2 devices",
+          "cool_category_3": "Cooling category 3 devices",
+          "weather_sensitive_climates": "Weather-sensitive climates",
+          "shared_climates": "Shared climates",
+          "dumb_devices_json": "Dumb devices JSON"
+        }
+      },
+      "edit_room_select": {
+        "title": "Choose room",
+        "description": "Select room to edit.",
+        "data": {
+          "room_id": "Room"
+        }
+      },
+      "edit_room": {
+        "title": "Edit room",
+        "description": "Update sensors and devices for selected room.",
+        "data": {
+          "room_name": "Room name",
+          "temp_sensors": "Temperature sensors",
+          "heat_category_1": "Heating category 1 devices",
+          "heat_category_2": "Heating category 2 devices",
+          "heat_category_3": "Heating category 3 devices",
+          "cool_category_1": "Cooling category 1 devices",
+          "cool_category_2": "Cooling category 2 devices",
+          "cool_category_3": "Cooling category 3 devices",
+          "weather_sensitive_climates": "Weather-sensitive climates",
+          "shared_climates": "Shared climates",
+          "dumb_devices_json": "Dumb devices JSON"
+        }
+      },
+      "delete_room_select": {
+        "title": "Choose room",
+        "description": "Select room to delete.",
+        "data": {
+          "room_id": "Room"
+        }
+      },
+      "delete_room_confirm": {
+        "title": "Delete room",
+        "description": "Delete selected room and its per-room overrides.",
+        "data": {
+          "confirm_delete": "Confirm deletion"
         }
       }
     },
     "error": {
-      "invalid_json": "Invalid JSON in map fields"
+      "invalid_json": "Invalid JSON in map fields",
+      "invalid_room_json": "Invalid room configuration JSON",
+      "duplicate_room": "Room with this name already exists"
+    },
+    "abort": {
+      "no_rooms": "No rooms configured yet",
+      "room_not_found": "Selected room was not found",
+      "delete_cancelled": "Room deletion cancelled"
     }
   },
   "entity": {
