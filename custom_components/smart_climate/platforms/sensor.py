@@ -72,6 +72,23 @@ class RoomPhaseSensor(SmartClimateEntity, SensorEntity):
             return "disabled"
         return room.get("phase")
 
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        if not self.coordinator.data:
+            return {}
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        active_devices = room.get("active_devices", [])
+        return {
+            "phase_reason": room.get("phase_reason"),
+            "demand": room.get("demand"),
+            "demand_delta": room.get("demand_delta"),
+            "current_temp": room.get("current_temp"),
+            "target_temp": room.get("target_temp"),
+            "tolerance": room.get("tolerance"),
+            "active_devices_count": len(active_devices) if isinstance(active_devices, list) else 0,
+            "active_devices": active_devices,
+        }
+
 
 class OutdoorTempSensor(SmartClimateEntity, SensorEntity):
     """Outdoor temperature from selected source."""

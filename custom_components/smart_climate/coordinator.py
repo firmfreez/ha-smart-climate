@@ -17,12 +17,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    AFTER_REACH_KEEP_ON,
-    AFTER_REACH_SET_TARGET,
-    AFTER_REACH_TURN_OFF,
     CONF_AC_MISSING_OUTDOOR_POLICY,
-    CONF_AFTER_REACH_DUMB,
-    CONF_AFTER_REACH_SMART,
     CONF_AGGREGATION,
     CONF_COOL_BIG,
     CONF_COOL_CATEGORY2_DIFF,
@@ -69,7 +64,6 @@ from .const import (
     COORDINATOR_DEBOUNCE_SECONDS,
     DEFAULT_UPDATE_INTERVAL,
     DUMB_DEFAULT_CATEGORY,
-    DUMB_PARTICIPATION_ALWAYS,
     DUMB_PARTICIPATION_OFF,
     DUMB_PARTICIPATION_UNTIL_TARGET,
     MODE_GLOBAL,
@@ -275,6 +269,30 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _sync_update_interval(self) -> None:
         self.update_interval = timedelta(seconds=int(self._opt(CONF_UPDATE_INTERVAL)))
 
+    @staticmethod
+    def _room_has_capability(room: RoomConfig, is_heating: bool) -> bool:
+        if is_heating:
+            category_entities = merge_categories(
+                room.heat_category_1, room.heat_category_2, room.heat_category_3, 3
+            )
+        else:
+            category_entities = merge_categories(
+                room.cool_category_1, room.cool_category_2, room.cool_category_3, 3
+            )
+
+        has_room_entities = any(
+            not (entity_id.startswith("climate.") and entity_id in room.shared_climates)
+            for entity_id in category_entities
+        )
+        if has_room_entities:
+            return True
+
+        target_type = "heat" if is_heating else "cool"
+        return any(
+            dumb.device_type == target_type and dumb.participation != DUMB_PARTICIPATION_OFF
+            for dumb in room.dumb_devices
+        )
+
     def _persist_option(self, key: str, value: Any) -> None:
         options = dict(self.config_entry.options)
         if options.get(key) == value:
@@ -344,6 +362,9 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         for room_id, room in self._rooms.items():
             runtime = self._runtime[room_id]
+            phase_reason: str | None = None
+            demand = "none"
+            demand_delta = 0.0
             runtime.enabled = self._room_enabled(room_id)
             runtime.target_temp = self._room_target(room_id)
             runtime.tolerance = self._room_tolerance(room_id)
@@ -354,13 +375,28 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             if runtime.current_temp is None:
                 _LOGGER.debug("Room %s has no valid temp sensors", room_id)
+                runtime.enabled = False
                 runtime.phase = PHASE_IDLE
-                room_payload[room_id] = self._room_payload(room, runtime)
+                phase_reason = "no_temperature"
+                room_payload[room_id] = self._room_payload(
+                    room,
+                    runtime,
+                    phase_reason=phase_reason,
+                    demand=demand,
+                    demand_delta=demand_delta,
+                )
                 continue
 
             if mode == MODE_OFF or not runtime.enabled:
                 runtime.phase = PHASE_IDLE
-                room_payload[room_id] = self._room_payload(room, runtime)
+                phase_reason = "mode_off" if mode == MODE_OFF else "room_disabled"
+                room_payload[room_id] = self._room_payload(
+                    room,
+                    runtime,
+                    phase_reason=phase_reason,
+                    demand=demand,
+                    demand_delta=demand_delta,
+                )
                 continue
 
             target = runtime.target_temp
@@ -414,6 +450,10 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 runtime.boost_started_at = None
 
             if heat_needed:
+                demand = "heat"
+                demand_delta = diff_heat
+                if not self._room_has_capability(room, is_heating=True):
+                    phase_reason = "no_heating_devices"
                 category = select_category(
                     diff_heat,
                     Thresholds(
@@ -430,10 +470,16 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     category=category,
                     control_type=control_type,
                 )
+                if phase_reason is None and not runtime.active_devices:
+                    phase_reason = "no_devices_activated"
                 for shared in room.shared_climates:
                     shared_demands[shared].append((room_id, "heat", diff_heat))
 
             elif cool_needed:
+                demand = "cool"
+                demand_delta = diff_cool
+                if not self._room_has_capability(room, is_heating=False):
+                    phase_reason = "no_cooling_devices"
                 category = select_category(
                     diff_cool,
                     Thresholds(
@@ -450,13 +496,21 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     category=category,
                     control_type=control_type,
                 )
+                if phase_reason is None and not runtime.active_devices:
+                    phase_reason = "no_devices_activated"
                 for shared in room.shared_climates:
                     shared_demands[shared].append((room_id, "cool", diff_cool))
 
             elif runtime.phase == PHASE_HOLD:
                 await self._async_apply_after_reach(room, runtime)
 
-            room_payload[room_id] = self._room_payload(room, runtime)
+            room_payload[room_id] = self._room_payload(
+                room,
+                runtime,
+                phase_reason=phase_reason,
+                demand=demand,
+                demand_delta=demand_delta,
+            )
 
         await self._async_apply_shared(shared_demands)
 
@@ -572,9 +626,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return active
 
-    async def _async_apply_after_reach(self, room: RoomConfig, runtime: RoomRuntime) -> None:
-        smart_behavior = self._opt(CONF_AFTER_REACH_SMART)
-        dumb_behavior = self._opt(CONF_AFTER_REACH_DUMB)
+    async def _async_apply_after_reach(self, room: RoomConfig, _runtime: RoomRuntime) -> None:
         all_climates = {
             entity_id
             for entity_id in merge_categories(
@@ -584,41 +636,28 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if entity_id.startswith("climate.")
         }
 
-        if smart_behavior == AFTER_REACH_KEEP_ON:
-            pass
-        elif smart_behavior == AFTER_REACH_SET_TARGET:
-            for climate_entity in all_climates:
-                if climate_entity in room.shared_climates:
-                    continue
-                await self._async_set_climate(
-                    climate_entity,
-                    target=float(runtime.target_temp),
-                    is_heating=True,
-                    control_type="normal",
-                    offset=0.0,
-                    skip_hvac=True,
-                )
-        elif smart_behavior == AFTER_REACH_TURN_OFF:
-            for climate_entity in all_climates:
-                if climate_entity in room.shared_climates:
-                    continue
-                await self._async_call_service_entity(climate_entity, "climate", "turn_off")
+        for climate_entity in all_climates:
+            if climate_entity in room.shared_climates:
+                continue
+            await self._async_call_service_entity(climate_entity, "climate", "turn_off")
 
         for dumb in room.dumb_devices:
             if dumb.participation == DUMB_PARTICIPATION_OFF:
                 continue
-            if dumb.participation == DUMB_PARTICIPATION_UNTIL_TARGET:
-                await self._async_call_service_entity(dumb.off_script, "script", "turn_on")
-                continue
-            if dumb.participation == DUMB_PARTICIPATION_ALWAYS and dumb_behavior == AFTER_REACH_TURN_OFF:
-                await self._async_call_service_entity(dumb.off_script, "script", "turn_on")
+            await self._async_call_service_entity(dumb.off_script, "script", "turn_on")
 
     async def _async_apply_shared(self, demands: dict[str, list[tuple[str, str, float]]]) -> None:
         strategy = self._opt(CONF_SHARED_ARBITRATION)
         priority_room = self._opt(CONF_PRIORITY_ROOM)
 
         for climate_entity, climate_demands in demands.items():
-            involved_rooms = [r for r in self._shared_map.get(climate_entity, []) if self._room_enabled(r)]
+            involved_rooms = [
+                room_id
+                for room_id in self._shared_map.get(climate_entity, [])
+                if self._room_enabled(room_id)
+                and room_id in self._runtime
+                and self._runtime[room_id].current_temp is not None
+            ]
             if not involved_rooms:
                 _LOGGER.debug("Skip shared %s: all rooms disabled", climate_entity)
                 continue
@@ -668,15 +707,17 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if state is None:
             return False
 
+        action_sent = False
         hvac_modes = state.attributes.get("hvac_modes", [])
         hvac_mode = mode_hvac(is_heating)
-        if not skip_hvac and hvac_mode in hvac_modes:
+        if not skip_hvac and hvac_mode in hvac_modes and state.state != hvac_mode:
             await self.hass.services.async_call(
                 "climate",
                 "set_hvac_mode",
                 {ATTR_ENTITY_ID: entity_id, "hvac_mode": hvac_mode},
                 blocking=False,
             )
+            action_sent = True
 
         climate_min = state.attributes.get("min_temp")
         climate_max = state.attributes.get("max_temp")
@@ -688,19 +729,35 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             climate_min_temp=float(climate_min) if climate_min is not None else None,
             climate_max_temp=float(climate_max) if climate_max is not None else None,
         )
-        await self.hass.services.async_call(
-            "climate",
-            "set_temperature",
-            {ATTR_ENTITY_ID: entity_id, "temperature": setpoint},
-            blocking=False,
-        )
+        current_setpoint = state.attributes.get("temperature")
+        if current_setpoint is None:
+            should_set_temp = True
+        else:
+            try:
+                should_set_temp = abs(float(current_setpoint) - setpoint) > 0.05
+            except (TypeError, ValueError):
+                should_set_temp = True
+        if should_set_temp:
+            await self.hass.services.async_call(
+                "climate",
+                "set_temperature",
+                {ATTR_ENTITY_ID: entity_id, "temperature": setpoint},
+                blocking=False,
+            )
+            action_sent = True
 
-        self._device_state[entity_id].last_action_time = dt_util.utcnow()
-        return True
+        if action_sent:
+            self._device_state[entity_id].last_action_time = dt_util.utcnow()
+        return action_sent
 
     async def _async_call_service_entity(self, entity_id: str, domain: str, service: str) -> bool:
         if not self._can_act(entity_id):
             return False
+
+        state = self.hass.states.get(entity_id)
+        if domain == "climate" and service == "turn_off" and state is not None and state.state == "off":
+            return False
+
         await self.hass.services.async_call(
             domain,
             service,
@@ -717,7 +774,15 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return True
         return (dt_util.utcnow() - state.last_action_time) >= timedelta(seconds=min_action)
 
-    def _room_payload(self, room: RoomConfig, runtime: RoomRuntime) -> dict[str, Any]:
+    def _room_payload(
+        self,
+        room: RoomConfig,
+        runtime: RoomRuntime,
+        *,
+        phase_reason: str | None = None,
+        demand: str = "none",
+        demand_delta: float = 0.0,
+    ) -> dict[str, Any]:
         return {
             "name": room.name,
             "enabled": runtime.enabled,
@@ -725,6 +790,9 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "target_temp": runtime.target_temp,
             "tolerance": runtime.tolerance,
             "phase": runtime.phase,
+            "phase_reason": phase_reason,
+            "demand": demand,
+            "demand_delta": demand_delta,
             "offset": runtime.current_offset,
             "active_category_heat": runtime.active_category_heat,
             "active_category_cool": runtime.active_category_cool,

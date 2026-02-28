@@ -57,3 +57,32 @@ def test_runtime_entity_changes_are_persisted_to_entry_options() -> None:
     assert "self._persist_option_map_value(CONF_ROOM_ENABLED, room_id, value)" in source
     assert "self._persist_option_map_value(CONF_PER_ROOM_TARGETS, room_id, value)" in source
     assert "self._persist_option_map_value(CONF_PER_ROOM_TOLERANCES, room_id, value)" in source
+
+
+def test_after_reach_always_turns_devices_off() -> None:
+    source = COORDINATOR.read_text(encoding="utf-8")
+    assert 'await self._async_call_service_entity(climate_entity, "climate", "turn_off")' in source
+    assert 'await self._async_call_service_entity(dumb.off_script, "script", "turn_on")' in source
+    assert "smart_behavior =" not in source
+    assert "dumb_behavior =" not in source
+
+
+def test_room_phase_payload_contains_diagnostic_reason() -> None:
+    source = COORDINATOR.read_text(encoding="utf-8")
+    assert '"phase_reason": phase_reason' in source
+    assert '"demand": demand' in source
+    assert '"demand_delta": demand_delta' in source
+
+
+def test_climate_commands_are_not_sent_when_state_already_matches() -> None:
+    source = COORDINATOR.read_text(encoding="utf-8")
+    assert 'domain == "climate" and service == "turn_off"' in source
+    assert "state.state == \"off\"" in source
+    assert "state.state != hvac_mode" in source
+    assert "abs(float(current_setpoint) - setpoint) > 0.05" in source
+
+
+def test_room_with_no_temperature_is_excluded_from_control_and_shared() -> None:
+    source = COORDINATOR.read_text(encoding="utf-8")
+    assert "runtime.enabled = False" in source
+    assert "self._runtime[room_id].current_temp is not None" in source
