@@ -25,9 +25,13 @@ class RoomConfig:
     room_id: str
     name: str
     temp_sensors: list[str] = field(default_factory=list)
-    primary_climates: list[str] = field(default_factory=list)
-    ac_climates: list[str] = field(default_factory=list)
-    dumb_devices: list[DumbDeviceConfig] = field(default_factory=list)
+    heat_category_1: list[str] = field(default_factory=list)
+    heat_category_2: list[str] = field(default_factory=list)
+    heat_category_3: list[str] = field(default_factory=list)
+    cool_category_1: list[str] = field(default_factory=list)
+    cool_category_2: list[str] = field(default_factory=list)
+    cool_category_3: list[str] = field(default_factory=list)
+    weather_sensitive_climates: list[str] = field(default_factory=list)
     shared_climates: list[str] = field(default_factory=list)
 
 

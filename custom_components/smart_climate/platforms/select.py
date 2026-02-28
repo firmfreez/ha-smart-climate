@@ -38,7 +38,8 @@ async def async_setup_entry(
 class SmartClimateModeSelect(SmartClimateEntity, SelectEntity, RestoreEntity):
     """Mode selector."""
 
-    _attr_name = "Mode"
+    _attr_name = None
+    _attr_translation_key = "mode"
     _attr_icon = "mdi:hvac"
     _attr_options = (MODE_OFF, MODE_PER_ROOM, MODE_GLOBAL)
 
@@ -63,7 +64,8 @@ class SmartClimateModeSelect(SmartClimateEntity, SelectEntity, RestoreEntity):
 class SmartClimateTypeSelect(SmartClimateEntity, SelectEntity, RestoreEntity):
     """Type selector."""
 
-    _attr_name = "Type"
+    _attr_name = None
+    _attr_translation_key = "type"
     _attr_icon = "mdi:rocket-launch"
     _attr_options = (TYPE_NORMAL, TYPE_FAST, TYPE_EXTREME)
 

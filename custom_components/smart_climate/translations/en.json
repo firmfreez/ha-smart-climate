@@ -19,10 +19,14 @@
         "data": {
           "room_name": "Room name",
           "temp_sensors": "Temperature sensors",
-          "primary_climates": "Primary climate devices (category 1)",
-          "ac_climates": "AC/heat-pump climates (category 3)",
+          "heat_category_1": "Heating category 1 devices",
+          "heat_category_2": "Heating category 2 devices",
+          "heat_category_3": "Heating category 3 devices",
+          "cool_category_1": "Cooling category 1 devices",
+          "cool_category_2": "Cooling category 2 devices",
+          "cool_category_3": "Cooling category 3 devices",
+          "weather_sensitive_climates": "Weather-sensitive climates",
           "shared_climates": "Shared climates",
-          "dumb_devices_json": "Dumb devices JSON",
           "add_another_room": "Add one more room"
         }
       }
@@ -54,9 +58,13 @@
           "heat_small": "Heat small threshold",
           "heat_medium": "Heat medium threshold",
           "heat_big": "Heat big threshold",
+          "heat_category2_diff": "Heat diff to enable category 2",
+          "heat_category3_diff": "Heat diff to enable category 3",
           "cool_small": "Cool small threshold",
           "cool_medium": "Cool medium threshold",
           "cool_big": "Cool big threshold",
+          "cool_category2_diff": "Cool diff to enable category 2",
+          "cool_category3_diff": "Cool diff to enable category 3",
           "min_outdoor_for_heatpump": "Min outdoor temp for heat-pump heating",
           "max_outdoor_for_cool": "Max outdoor temp for cooling",
           "after_reach_smart": "After-reach behavior for climate devices",
@@ -71,6 +79,37 @@
     },
     "error": {
       "invalid_json": "Invalid JSON in map fields"
+    }
+  },
+  "entity": {
+    "select": {
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "off": "Off",
+          "per_room": "Per room",
+          "global": "Global"
+        }
+      },
+      "type": {
+        "name": "Type",
+        "state": {
+          "normal": "Normal",
+          "fast": "Fast",
+          "extreme": "Extreme"
+        }
+      }
+    },
+    "sensor": {
+      "room_phase": {
+        "name": "Phase",
+        "state": {
+          "idle": "Idle",
+          "boost": "Boost",
+          "hold": "Hold",
+          "disabled": "Disabled"
+        }
+      }
     }
   }
 }

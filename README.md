@@ -29,20 +29,17 @@
 - `sensor.smart_climate_<room>_phase`
 - `sensor.smart_climate_outdoor_temp`
 
-## Формат dumb устройств в Config Flow
+## Категории устройств
 
-Поле `dumb_devices_json` принимает JSON-массив:
+Для каждой комнаты задаются отдельные списки:
+- `heat_category_1`, `heat_category_2`, `heat_category_3`
+- `cool_category_1`, `cool_category_2`, `cool_category_3`
 
-```json
-[
-  {
-    "on_script": "script.heater_on",
-    "off_script": "script.heater_off",
-    "device_type": "heat",
-    "participation": "until_reach_target"
-  }
-]
-```
+Можно добавлять `climate.*` и `script.*` устройства. При выборе категории интеграция активирует устройства накопительно (`cat1`, затем `cat1+cat2`, затем `cat1+cat2+cat3`).
+
+Также задаются:
+- `weather_sensitive_climates` — климатические устройства, которые ограничиваются наружной температурой;
+- `shared_climates` — устройства, обслуживающие несколько комнат (участвуют через арбитраж shared demand).
 
 ## Релиз под HACS
 

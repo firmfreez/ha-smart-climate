@@ -26,11 +26,15 @@ from .const import (
     CONF_AFTER_REACH_SMART,
     CONF_AGGREGATION,
     CONF_COOL_BIG,
+    CONF_COOL_CATEGORY2_DIFF,
+    CONF_COOL_CATEGORY3_DIFF,
     CONF_COOL_MEDIUM,
     CONF_COOL_SMALL,
     CONF_GLOBAL_TARGET,
     CONF_GLOBAL_TOLERANCE,
     CONF_HEAT_BIG,
+    CONF_HEAT_CATEGORY2_DIFF,
+    CONF_HEAT_CATEGORY3_DIFF,
     CONF_HEAT_MEDIUM,
     CONF_HEAT_SMALL,
     CONF_MAX_OFFSET,
@@ -44,11 +48,19 @@ from .const import (
     CONF_PER_ROOM_TARGETS,
     CONF_PER_ROOM_TOLERANCES,
     CONF_PRIORITY_ROOM,
+    CONF_ROOM_COOL_CATEGORY_1,
+    CONF_ROOM_COOL_CATEGORY_2,
+    CONF_ROOM_COOL_CATEGORY_3,
     CONF_ROOM_DUMB_DEVICES,
     CONF_ROOM_ENABLED,
+    CONF_ROOM_HEAT_CATEGORY_1,
+    CONF_ROOM_HEAT_CATEGORY_2,
+    CONF_ROOM_HEAT_CATEGORY_3,
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
+    CONF_ROOM_SHARED_CLIMATES,
     CONF_ROOM_TEMP_SENSORS,
+    CONF_ROOM_WEATHER_SENSITIVE_CLIMATES,
     CONF_ROOMS,
     CONF_SHARED_ARBITRATION,
     CONF_STEP_OFFSET,
@@ -61,11 +73,15 @@ from .const import (
     DEFAULT_AFTER_REACH_SMART,
     DEFAULT_AGGREGATION,
     DEFAULT_COOL_BIG,
+    DEFAULT_COOL_CATEGORY2_DIFF,
+    DEFAULT_COOL_CATEGORY3_DIFF,
     DEFAULT_COOL_MEDIUM,
     DEFAULT_COOL_SMALL,
     DEFAULT_GLOBAL_TARGET,
     DEFAULT_GLOBAL_TOLERANCE,
     DEFAULT_HEAT_BIG,
+    DEFAULT_HEAT_CATEGORY2_DIFF,
+    DEFAULT_HEAT_CATEGORY3_DIFF,
     DEFAULT_HEAT_MEDIUM,
     DEFAULT_HEAT_SMALL,
     DEFAULT_MAX_OFFSET,
@@ -91,7 +107,6 @@ from .const import (
     TYPE_FAST,
     TYPE_NORMAL,
 )
-from .coordinator import SmartClimateCoordinator
 
 
 class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -123,7 +138,11 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_OUTDOOR_SOURCE_TYPE, default=OUTDOOR_SOURCE_NONE): SelectSelector(
                     SelectSelectorConfig(
-                        options=[OUTDOOR_SOURCE_NONE, OUTDOOR_SOURCE_WEATHER, OUTDOOR_SOURCE_SENSOR],
+                        options=[
+                            {"value": OUTDOOR_SOURCE_NONE, "label": "No source"},
+                            {"value": OUTDOOR_SOURCE_WEATHER, "label": "Weather entity"},
+                            {"value": OUTDOOR_SOURCE_SENSOR, "label": "Temperature sensor"},
+                        ],
                         mode="dropdown",
                     )
                 ),
@@ -137,10 +156,25 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_AC_MISSING_OUTDOOR_POLICY,
                     default=DEFAULT_AC_MISSING_OUTDOOR_POLICY,
                 ): SelectSelector(
-                    SelectSelectorConfig(options=[OUTDOOR_POLICY_BLOCK, OUTDOOR_POLICY_ALLOW], mode="dropdown")
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": OUTDOOR_POLICY_BLOCK, "label": "Block weather-sensitive devices"},
+                            {"value": OUTDOOR_POLICY_ALLOW, "label": "Allow weather-sensitive devices"},
+                        ],
+                        mode="dropdown",
+                    )
                 ),
                 vol.Required(CONF_AGGREGATION, default=DEFAULT_AGGREGATION): SelectSelector(
-                    SelectSelectorConfig(options=["average", "min", "max", "median", "first"], mode="dropdown")
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": "average", "label": "Average"},
+                            {"value": "min", "label": "Minimum"},
+                            {"value": "max", "label": "Maximum"},
+                            {"value": "median", "label": "Median"},
+                            {"value": "first", "label": "First sensor"},
+                        ],
+                        mode="dropdown",
+                    )
                 ),
             }
         )
@@ -153,15 +187,21 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 room_id = slugify(user_input[CONF_ROOM_NAME])
-                dumb = SmartClimateCoordinator.parse_dumb_devices(user_input.get("dumb_devices_json", ""))
                 room = {
                     CONF_ROOM_ID: room_id,
                     CONF_ROOM_NAME: user_input[CONF_ROOM_NAME],
                     CONF_ROOM_TEMP_SENSORS: user_input.get(CONF_ROOM_TEMP_SENSORS, []),
-                    "primary_climates": user_input.get("primary_climates", []),
-                    "ac_climates": user_input.get("ac_climates", []),
-                    "shared_climates": user_input.get("shared_climates", []),
-                    CONF_ROOM_DUMB_DEVICES: dumb,
+                    CONF_ROOM_HEAT_CATEGORY_1: user_input.get(CONF_ROOM_HEAT_CATEGORY_1, []),
+                    CONF_ROOM_HEAT_CATEGORY_2: user_input.get(CONF_ROOM_HEAT_CATEGORY_2, []),
+                    CONF_ROOM_HEAT_CATEGORY_3: user_input.get(CONF_ROOM_HEAT_CATEGORY_3, []),
+                    CONF_ROOM_COOL_CATEGORY_1: user_input.get(CONF_ROOM_COOL_CATEGORY_1, []),
+                    CONF_ROOM_COOL_CATEGORY_2: user_input.get(CONF_ROOM_COOL_CATEGORY_2, []),
+                    CONF_ROOM_COOL_CATEGORY_3: user_input.get(CONF_ROOM_COOL_CATEGORY_3, []),
+                    CONF_ROOM_WEATHER_SENSITIVE_CLIMATES: user_input.get(
+                        CONF_ROOM_WEATHER_SENSITIVE_CLIMATES, []
+                    ),
+                    CONF_ROOM_SHARED_CLIMATES: user_input.get(CONF_ROOM_SHARED_CLIMATES, []),
+                    CONF_ROOM_DUMB_DEVICES: [],
                 }
                 if any(existing[CONF_ROOM_ID] == room_id for existing in self._rooms):
                     errors[CONF_ROOM_NAME] = "duplicate_room"
@@ -188,17 +228,29 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_ROOM_TEMP_SENSORS): EntitySelector(
                     EntitySelectorConfig(domain="sensor", multiple=True)
                 ),
-                vol.Optional("primary_climates", default=[]): EntitySelector(
+                vol.Optional(CONF_ROOM_HEAT_CATEGORY_1, default=[]): EntitySelector(
+                    EntitySelectorConfig(domain=["climate", "script"], multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_HEAT_CATEGORY_2, default=[]): EntitySelector(
+                    EntitySelectorConfig(domain=["climate", "script"], multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_HEAT_CATEGORY_3, default=[]): EntitySelector(
+                    EntitySelectorConfig(domain=["climate", "script"], multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_COOL_CATEGORY_1, default=[]): EntitySelector(
+                    EntitySelectorConfig(domain=["climate", "script"], multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_COOL_CATEGORY_2, default=[]): EntitySelector(
+                    EntitySelectorConfig(domain=["climate", "script"], multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_COOL_CATEGORY_3, default=[]): EntitySelector(
+                    EntitySelectorConfig(domain=["climate", "script"], multiple=True)
+                ),
+                vol.Optional(CONF_ROOM_WEATHER_SENSITIVE_CLIMATES, default=[]): EntitySelector(
                     EntitySelectorConfig(domain="climate", multiple=True)
                 ),
-                vol.Optional("ac_climates", default=[]): EntitySelector(
+                vol.Optional(CONF_ROOM_SHARED_CLIMATES, default=[]): EntitySelector(
                     EntitySelectorConfig(domain="climate", multiple=True)
-                ),
-                vol.Optional("shared_climates", default=[]): EntitySelector(
-                    EntitySelectorConfig(domain="climate", multiple=True)
-                ),
-                vol.Optional("dumb_devices_json", default=""): TextSelector(
-                    TextSelectorConfig(multiline=True)
                 ),
                 vol.Required("add_another_room", default=False): bool,
             }
@@ -240,9 +292,13 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                     CONF_HEAT_SMALL: user_input[CONF_HEAT_SMALL],
                     CONF_HEAT_MEDIUM: user_input[CONF_HEAT_MEDIUM],
                     CONF_HEAT_BIG: user_input[CONF_HEAT_BIG],
+                    CONF_HEAT_CATEGORY2_DIFF: user_input[CONF_HEAT_CATEGORY2_DIFF],
+                    CONF_HEAT_CATEGORY3_DIFF: user_input[CONF_HEAT_CATEGORY3_DIFF],
                     CONF_COOL_SMALL: user_input[CONF_COOL_SMALL],
                     CONF_COOL_MEDIUM: user_input[CONF_COOL_MEDIUM],
                     CONF_COOL_BIG: user_input[CONF_COOL_BIG],
+                    CONF_COOL_CATEGORY2_DIFF: user_input[CONF_COOL_CATEGORY2_DIFF],
+                    CONF_COOL_CATEGORY3_DIFF: user_input[CONF_COOL_CATEGORY3_DIFF],
                     CONF_MIN_OUTDOOR_FOR_HEATPUMP: user_input[CONF_MIN_OUTDOOR_FOR_HEATPUMP],
                     CONF_MAX_OUTDOOR_FOR_COOL: user_input[CONF_MAX_OUTDOOR_FOR_COOL],
                     CONF_AFTER_REACH_SMART: user_input[CONF_AFTER_REACH_SMART],
@@ -261,10 +317,24 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema(
             {
                 vol.Required(CONF_MODE, default=options.get(CONF_MODE, DEFAULT_MODE)): SelectSelector(
-                    SelectSelectorConfig(options=[MODE_OFF, MODE_PER_ROOM, MODE_GLOBAL], mode="dropdown")
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": MODE_OFF, "label": "Off"},
+                            {"value": MODE_PER_ROOM, "label": "Per room"},
+                            {"value": MODE_GLOBAL, "label": "Global"},
+                        ],
+                        mode="dropdown",
+                    )
                 ),
                 vol.Required(CONF_TYPE, default=options.get(CONF_TYPE, DEFAULT_TYPE)): SelectSelector(
-                    SelectSelectorConfig(options=[TYPE_NORMAL, TYPE_FAST, TYPE_EXTREME], mode="dropdown")
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": TYPE_NORMAL, "label": "Normal"},
+                            {"value": TYPE_FAST, "label": "Fast"},
+                            {"value": TYPE_EXTREME, "label": "Extreme"},
+                        ],
+                        mode="dropdown",
+                    )
                 ),
                 vol.Required(
                     CONF_GLOBAL_TARGET, default=options.get(CONF_GLOBAL_TARGET, DEFAULT_GLOBAL_TARGET)
@@ -301,6 +371,14 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_HEAT_BIG, default=options.get(CONF_HEAT_BIG, DEFAULT_HEAT_BIG)): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=20, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
+                vol.Required(
+                    CONF_HEAT_CATEGORY2_DIFF,
+                    default=options.get(CONF_HEAT_CATEGORY2_DIFF, DEFAULT_HEAT_CATEGORY2_DIFF),
+                ): NumberSelector(NumberSelectorConfig(min=0.1, max=15, step=0.1, mode=NumberSelectorMode.BOX)),
+                vol.Required(
+                    CONF_HEAT_CATEGORY3_DIFF,
+                    default=options.get(CONF_HEAT_CATEGORY3_DIFF, DEFAULT_HEAT_CATEGORY3_DIFF),
+                ): NumberSelector(NumberSelectorConfig(min=0.1, max=20, step=0.1, mode=NumberSelectorMode.BOX)),
                 vol.Required(CONF_COOL_SMALL, default=options.get(CONF_COOL_SMALL, DEFAULT_COOL_SMALL)): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=10, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
@@ -310,6 +388,14 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_COOL_BIG, default=options.get(CONF_COOL_BIG, DEFAULT_COOL_BIG)): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=20, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
+                vol.Required(
+                    CONF_COOL_CATEGORY2_DIFF,
+                    default=options.get(CONF_COOL_CATEGORY2_DIFF, DEFAULT_COOL_CATEGORY2_DIFF),
+                ): NumberSelector(NumberSelectorConfig(min=0.1, max=15, step=0.1, mode=NumberSelectorMode.BOX)),
+                vol.Required(
+                    CONF_COOL_CATEGORY3_DIFF,
+                    default=options.get(CONF_COOL_CATEGORY3_DIFF, DEFAULT_COOL_CATEGORY3_DIFF),
+                ): NumberSelector(NumberSelectorConfig(min=0.1, max=20, step=0.1, mode=NumberSelectorMode.BOX)),
                 vol.Required(
                     CONF_MIN_OUTDOOR_FOR_HEATPUMP,
                     default=options.get(CONF_MIN_OUTDOOR_FOR_HEATPUMP, DEFAULT_MIN_OUTDOOR_FOR_HEATPUMP),
@@ -322,16 +408,37 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                     CONF_AFTER_REACH_SMART,
                     default=options.get(CONF_AFTER_REACH_SMART, DEFAULT_AFTER_REACH_SMART),
                 ): SelectSelector(
-                    SelectSelectorConfig(options=["keep_on", "set_target", "turn_off"], mode="dropdown")
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": "keep_on", "label": "Keep on"},
+                            {"value": "set_target", "label": "Set target"},
+                            {"value": "turn_off", "label": "Turn off"},
+                        ],
+                        mode="dropdown",
+                    )
                 ),
                 vol.Required(
                     CONF_AFTER_REACH_DUMB,
                     default=options.get(CONF_AFTER_REACH_DUMB, DEFAULT_AFTER_REACH_DUMB),
                 ): SelectSelector(
-                    SelectSelectorConfig(options=["keep_on", "set_target", "turn_off"], mode="dropdown")
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": "keep_on", "label": "Keep on"},
+                            {"value": "set_target", "label": "Set target"},
+                            {"value": "turn_off", "label": "Turn off"},
+                        ],
+                        mode="dropdown",
+                    )
                 ),
                 vol.Required(CONF_SHARED_ARBITRATION, default=options.get(CONF_SHARED_ARBITRATION, "max_demand")): SelectSelector(
-                    SelectSelectorConfig(options=["max_demand", "priority_room", "average_request"], mode="dropdown")
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": "max_demand", "label": "Max demand wins"},
+                            {"value": "priority_room", "label": "Priority room"},
+                            {"value": "average_request", "label": "Average request"},
+                        ],
+                        mode="dropdown",
+                    )
                 ),
                 vol.Optional(CONF_PRIORITY_ROOM, default=options.get(CONF_PRIORITY_ROOM, "")): TextSelector(
                     TextSelectorConfig()

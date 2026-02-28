@@ -54,6 +54,7 @@ class RoomCurrentTempSensor(SmartClimateEntity, SensorEntity):
 class RoomPhaseSensor(SmartClimateEntity, SensorEntity):
     """Room control phase sensor."""
 
+    _attr_translation_key = "room_phase"
     _attr_icon = "mdi:state-machine"
 
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:

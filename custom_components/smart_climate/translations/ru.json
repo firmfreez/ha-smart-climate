@@ -19,10 +19,14 @@
         "data": {
           "room_name": "Название комнаты",
           "temp_sensors": "Датчики температуры",
-          "primary_climates": "Основные climate устройства (категория 1)",
-          "ac_climates": "Кондиционеры/тепловые насосы (категория 3)",
+          "heat_category_1": "Устройства нагрева категории 1",
+          "heat_category_2": "Устройства нагрева категории 2",
+          "heat_category_3": "Устройства нагрева категории 3",
+          "cool_category_1": "Устройства охлаждения категории 1",
+          "cool_category_2": "Устройства охлаждения категории 2",
+          "cool_category_3": "Устройства охлаждения категории 3",
+          "weather_sensitive_climates": "Погодочувствительные climate устройства",
           "shared_climates": "Shared climate устройства",
-          "dumb_devices_json": "JSON dumb-устройств",
           "add_another_room": "Добавить еще комнату"
         }
       }
@@ -54,9 +58,13 @@
           "heat_small": "Порог small для нагрева",
           "heat_medium": "Порог medium для нагрева",
           "heat_big": "Порог big для нагрева",
+          "heat_category2_diff": "Разница для включения категории 2 (нагрев)",
+          "heat_category3_diff": "Разница для включения категории 3 (нагрев)",
           "cool_small": "Порог small для охлаждения",
           "cool_medium": "Порог medium для охлаждения",
           "cool_big": "Порог big для охлаждения",
+          "cool_category2_diff": "Разница для включения категории 2 (охлаждение)",
+          "cool_category3_diff": "Разница для включения категории 3 (охлаждение)",
           "min_outdoor_for_heatpump": "Мин. наружная температура для нагрева кондиционером",
           "max_outdoor_for_cool": "Макс. наружная температура для охлаждения",
           "after_reach_smart": "Поведение после достижения цели (climate)",
@@ -71,6 +79,37 @@
     },
     "error": {
       "invalid_json": "Некорректный JSON в map-полях"
+    }
+  },
+  "entity": {
+    "select": {
+      "mode": {
+        "name": "Режим",
+        "state": {
+          "off": "Выключен",
+          "per_room": "По комнатам",
+          "global": "Глобальный"
+        }
+      },
+      "type": {
+        "name": "Профиль",
+        "state": {
+          "normal": "Обычный",
+          "fast": "Ускоренный",
+          "extreme": "Экстрим"
+        }
+      }
+    },
+    "sensor": {
+      "room_phase": {
+        "name": "Фаза",
+        "state": {
+          "idle": "Ожидание",
+          "boost": "Разгон",
+          "hold": "Удержание",
+          "disabled": "Отключена"
+        }
+      }
     }
   }
 }

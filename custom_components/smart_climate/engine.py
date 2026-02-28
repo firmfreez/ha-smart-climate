@@ -12,9 +12,8 @@ from .const import PHASE_BOOST, PHASE_HOLD, PHASE_IDLE, TYPE_EXTREME, TYPE_FAST,
 class Thresholds:
     """Thresholds for category selection."""
 
-    small: float
-    medium: float
-    big: float
+    category2_diff: float
+    category3_diff: float
 
 
 def aggregate_temperature(values: list[float], method: str) -> float | None:
@@ -34,9 +33,9 @@ def aggregate_temperature(values: list[float], method: str) -> float | None:
 
 def select_category(diff: float, thresholds: Thresholds, ac_allowed: bool) -> int:
     """Return 1..3 category by diff; degrade 3->2 when AC not allowed."""
-    if diff < thresholds.small:
+    if diff < thresholds.category2_diff:
         category = 1
-    elif diff < thresholds.medium:
+    elif diff < thresholds.category3_diff:
         category = 2
     else:
         category = 3
@@ -120,3 +119,32 @@ def compute_setpoint(
 def mode_hvac(is_heating: bool) -> str:
     """Return hvac mode name for requested direction."""
     return "heat" if is_heating else "cool"
+
+
+def merge_categories(
+    category_1: list[str],
+    category_2: list[str],
+    category_3: list[str],
+    active_category: int,
+) -> list[str]:
+    """Return active entities for category selection with cumulative logic."""
+    selected: list[str] = []
+    lists = [category_1, category_2, category_3]
+    for index in range(min(max(active_category, 1), 3)):
+        selected.extend(lists[index])
+    return list(dict.fromkeys(selected))
+
+
+def filter_weather_sensitive(
+    entity_ids: list[str],
+    weather_sensitive_climates: set[str],
+    is_outdoor_allowed: bool,
+) -> list[str]:
+    """Filter out weather-sensitive climate devices when outdoor policy blocks them."""
+    if is_outdoor_allowed:
+        return entity_ids
+    return [
+        entity_id
+        for entity_id in entity_ids
+        if not (entity_id.startswith("climate.") and entity_id in weather_sensitive_climates)
+    ]
