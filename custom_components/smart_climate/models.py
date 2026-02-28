@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from .const import PHASE_IDLE
 
@@ -53,6 +54,9 @@ class RoomRuntime:
     active_category_heat: int = 0
     active_category_cool: int = 0
     active_devices: list[str] = field(default_factory=list)
+    action_log: list[dict[str, Any]] = field(default_factory=list)
+    decision_summary: str | None = None
+    boost_elapsed_seconds: int = 0
 
 
 @dataclass

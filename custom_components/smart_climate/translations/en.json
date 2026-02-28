@@ -211,8 +211,20 @@
           "idle": "Idle",
           "boost": "Boost",
           "hold": "Hold",
-          "disabled": "Disabled"
+          "disabled": "Disabled",
+          "no_temperature": "No temperature data",
+          "mode_off": "Mode is off",
+          "room_disabled": "Room disabled",
+          "no_heating_devices": "No heating devices available",
+          "no_cooling_devices": "No cooling devices available",
+          "no_devices_activated": "No devices activated"
         }
+      },
+      "room_decision": {
+        "name": "Decision"
+      },
+      "room_last_action": {
+        "name": "Last Action"
       }
     }
   }

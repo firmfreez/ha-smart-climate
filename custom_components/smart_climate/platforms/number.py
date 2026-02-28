@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from homeassistant.components.number import NumberEntity, RestoreNumber
+from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -29,7 +29,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class BaseSmartClimateNumber(SmartClimateEntity, RestoreNumber):
+class BaseSmartClimateNumber(SmartClimateEntity, NumberEntity):
     """Base number entity with restore support."""
 
     _attr_native_min_value = 5.0
@@ -56,11 +56,6 @@ class GlobalTargetNumber(BaseSmartClimateNumber):
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_set_global_target(value)
 
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        if (last_number_data := await self.async_get_last_number_data()) is not None:
-            await self.coordinator.async_set_global_target(last_number_data.native_value)
-
 
 class GlobalToleranceNumber(BaseSmartClimateNumber):
     """Global tolerance."""
@@ -83,11 +78,6 @@ class GlobalToleranceNumber(BaseSmartClimateNumber):
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_set_global_tolerance(value)
 
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        if (last_number_data := await self.async_get_last_number_data()) is not None:
-            await self.coordinator.async_set_global_tolerance(last_number_data.native_value)
-
 
 class RoomTargetNumber(BaseSmartClimateNumber):
     """Per-room target temperature."""
@@ -109,11 +99,6 @@ class RoomTargetNumber(BaseSmartClimateNumber):
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_set_room_target(self._room_id, value)
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        if (last_number_data := await self.async_get_last_number_data()) is not None:
-            await self.coordinator.async_set_room_target(self._room_id, last_number_data.native_value)
 
 
 class RoomToleranceNumber(BaseSmartClimateNumber):
@@ -138,8 +123,3 @@ class RoomToleranceNumber(BaseSmartClimateNumber):
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_set_room_tolerance(self._room_id, value)
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        if (last_number_data := await self.async_get_last_number_data()) is not None:
-            await self.coordinator.async_set_room_tolerance(self._room_id, last_number_data.native_value)

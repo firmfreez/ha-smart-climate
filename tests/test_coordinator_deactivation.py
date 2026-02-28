@@ -64,7 +64,7 @@ if "homeassistant" not in sys.modules:
     sys.modules["homeassistant.util.dt"] = util_dt
 
 from custom_components.smart_climate.coordinator import SmartClimateCoordinator
-from custom_components.smart_climate.models import DumbDeviceConfig, RoomConfig
+from custom_components.smart_climate.models import DumbDeviceConfig, RoomConfig, RoomRuntime
 
 
 def _make_coordinator_with_call_log(call_log: list[tuple[str, str, str]]) -> SmartClimateCoordinator:
@@ -95,6 +95,7 @@ def test_deactivate_non_active_turns_off_cross_mode_and_category_mismatch() -> N
     asyncio.run(
         coordinator._async_deactivate_non_active_entities(
             room=room,
+            runtime=RoomRuntime(),
             is_heating=True,
             category=1,
             ac_allowed=True,
@@ -146,6 +147,7 @@ def test_deactivate_non_active_does_not_turn_off_shared_and_active_dumb() -> Non
     asyncio.run(
         coordinator._async_deactivate_non_active_entities(
             room=room,
+            runtime=RoomRuntime(),
             is_heating=True,
             category=1,
             ac_allowed=True,

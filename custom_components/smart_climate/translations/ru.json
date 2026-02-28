@@ -211,8 +211,20 @@
           "idle": "Ожидание",
           "boost": "Разгон",
           "hold": "Удержание",
-          "disabled": "Отключена"
+          "disabled": "Отключена",
+          "no_temperature": "Нет данных температуры",
+          "mode_off": "Режим выключен",
+          "room_disabled": "Комната отключена",
+          "no_heating_devices": "Нет доступных устройств нагрева",
+          "no_cooling_devices": "Нет доступных устройств охлаждения",
+          "no_devices_activated": "Не удалось активировать устройства"
         }
+      },
+      "room_decision": {
+        "name": "Решение"
+      },
+      "room_last_action": {
+        "name": "Последнее действие"
       }
     }
   }

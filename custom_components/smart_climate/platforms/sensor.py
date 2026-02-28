@@ -24,6 +24,8 @@ async def async_setup_entry(
     for room_id in coordinator.room_ids:
         entities.append(RoomCurrentTempSensor(coordinator, room_id))
         entities.append(RoomPhaseSensor(coordinator, room_id))
+        entities.append(RoomDecisionSensor(coordinator, room_id))
+        entities.append(RoomLastActionSensor(coordinator, room_id))
 
     async_add_entities(entities)
 
@@ -70,6 +72,9 @@ class RoomPhaseSensor(SmartClimateEntity, SensorEntity):
         room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
         if not room.get("enabled", True):
             return "disabled"
+        phase_reason = room.get("phase_reason")
+        if isinstance(phase_reason, str) and phase_reason:
+            return phase_reason
         return room.get("phase")
 
     @property
@@ -82,11 +87,14 @@ class RoomPhaseSensor(SmartClimateEntity, SensorEntity):
             "phase_reason": room.get("phase_reason"),
             "demand": room.get("demand"),
             "demand_delta": room.get("demand_delta"),
+            "boost_elapsed_seconds": room.get("boost_elapsed_seconds"),
+            "decision_summary": room.get("decision_summary"),
             "current_temp": room.get("current_temp"),
             "target_temp": room.get("target_temp"),
             "tolerance": room.get("tolerance"),
             "active_devices_count": len(active_devices) if isinstance(active_devices, list) else 0,
             "active_devices": active_devices,
+            "action_log": room.get("action_log", []),
         }
 
 
@@ -109,3 +117,64 @@ class OutdoorTempSensor(SmartClimateEntity, SensorEntity):
             return None
         value = self.coordinator.data.get("outdoor_temp")
         return float(value) if value is not None else None
+
+
+class RoomDecisionSensor(SmartClimateEntity, SensorEntity):
+    """Human-readable room decision summary."""
+
+    _attr_translation_key = "room_decision"
+    _attr_icon = "mdi:text-box-check-outline"
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Decision"
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_decision"
+
+    @property
+    def native_value(self) -> str | None:
+        if not self.coordinator.data:
+            return None
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        decision = room.get("decision_summary")
+        if isinstance(decision, str) and decision:
+            return decision
+        return "no decision yet"
+
+
+class RoomLastActionSensor(SmartClimateEntity, SensorEntity):
+    """Last room action in readable form."""
+
+    _attr_translation_key = "room_last_action"
+    _attr_icon = "mdi:flash-outline"
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Last Action"
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_last_action"
+
+    @property
+    def native_value(self) -> str | None:
+        if not self.coordinator.data:
+            return None
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        action_log = room.get("action_log", [])
+        if not isinstance(action_log, list) or not action_log:
+            return "no actions"
+
+        item = action_log[0]
+        if not isinstance(item, dict):
+            return "no actions"
+        entity_id = item.get("entity_id", "unknown")
+        action = item.get("action", "action")
+        reason = item.get("reason", "reason")
+        return f"{action} {entity_id} ({reason})"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        if not self.coordinator.data:
+            return {}
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        action_log = room.get("action_log", [])
+        return {"action_log": action_log if isinstance(action_log, list) else []}

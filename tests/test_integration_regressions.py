@@ -10,6 +10,7 @@ from custom_components.smart_climate.const import DEFAULT_MODE, MODE_OFF
 ROOT = Path(__file__).resolve().parents[1]
 NUMBER_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "number.py"
 SELECT_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "select.py"
+SENSOR_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "sensor.py"
 COORDINATOR = ROOT / "custom_components" / "smart_climate" / "coordinator.py"
 
 
@@ -38,6 +39,7 @@ def test_number_base_does_not_mix_number_and_restore_number() -> None:
     bases = {_base_name(base) for base in class_node.bases}
     # Mixing NumberEntity + RestoreNumber can break MRO on HA/Python updates.
     assert not {"NumberEntity", "RestoreNumber"}.issubset(bases)
+    assert "RestoreNumber" not in bases
 
 
 def test_select_platform_does_not_restore_mode_or_type_from_last_state() -> None:
@@ -78,8 +80,23 @@ def test_climate_commands_are_not_sent_when_state_already_matches() -> None:
     source = COORDINATOR.read_text(encoding="utf-8")
     assert 'domain == "climate" and service == "turn_off"' in source
     assert "state.state == \"off\"" in source
-    assert "state.state != hvac_mode" in source
+    assert "state.state != selected_hvac_mode" in source
     assert "abs(float(current_setpoint) - setpoint) > 0.05" in source
+    assert 'elif "auto" in hvac_modes' in source
+    assert '"climate",\n                    "turn_on"' in source
+
+
+def test_room_phase_sensor_uses_phase_reason_as_primary_state() -> None:
+    source = SENSOR_PLATFORM.read_text(encoding="utf-8")
+    assert "phase_reason = room.get(\"phase_reason\")" in source
+    assert "return phase_reason" in source
+    assert "\"decision_summary\": room.get(\"decision_summary\")" in source
+    assert "\"action_log\": room.get(\"action_log\", [])" in source
+
+
+def test_number_platform_does_not_restore_last_number_state() -> None:
+    source = NUMBER_PLATFORM.read_text(encoding="utf-8")
+    assert "async_get_last_number_data" not in source
 
 
 def test_room_with_no_temperature_is_excluded_from_control_and_shared() -> None:
