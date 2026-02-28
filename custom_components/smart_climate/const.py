@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "smart_climate"
 NAME = "Умный климат"
-VERSION = "0.1.9"
+VERSION = "0.1.10"
 
 PLATFORMS = ["select", "number", "switch", "sensor"]
 
@@ -107,7 +107,7 @@ AFTER_REACH_KEEP_ON = "keep_on"
 AFTER_REACH_SET_TARGET = "set_target"
 AFTER_REACH_TURN_OFF = "turn_off"
 
-DEFAULT_MODE = MODE_PER_ROOM
+DEFAULT_MODE = MODE_OFF
 DEFAULT_TYPE = TYPE_NORMAL
 DEFAULT_GLOBAL_TARGET = 22.0
 DEFAULT_GLOBAL_TOLERANCE = 0.3

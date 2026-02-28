@@ -49,7 +49,7 @@ class SmartClimateModeSelect(SmartClimateEntity, SelectEntity, RestoreEntity):
 
     @property
     def current_option(self) -> str:
-        return self.coordinator.data.get("mode", MODE_PER_ROOM) if self.coordinator.data else MODE_PER_ROOM
+        return self.coordinator.data.get("mode", MODE_OFF) if self.coordinator.data else MODE_OFF
 
     async def async_select_option(self, option: str) -> None:
         await self.coordinator.async_set_mode(option)
