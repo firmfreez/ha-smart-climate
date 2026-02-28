@@ -16,6 +16,7 @@ class DumbDeviceConfig:
     off_script: str
     device_type: str
     participation: str
+    category: int
 
 
 @dataclass

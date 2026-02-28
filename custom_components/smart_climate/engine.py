@@ -148,3 +148,20 @@ def filter_weather_sensitive(
         for entity_id in entity_ids
         if not (entity_id.startswith("climate.") and entity_id in weather_sensitive_climates)
     ]
+
+
+def should_activate_dumb_device(
+    *,
+    room_category: int,
+    device_category: int,
+    room_is_heating: bool,
+    device_type: str,
+    participation: str,
+) -> bool:
+    """Return whether dumb device should be activated in current room cycle."""
+    if participation == "off":
+        return False
+    expected_type = "heat" if room_is_heating else "cool"
+    if device_type != expected_type:
+        return False
+    return room_category >= device_category

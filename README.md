@@ -35,11 +35,60 @@
 - `heat_category_1`, `heat_category_2`, `heat_category_3`
 - `cool_category_1`, `cool_category_2`, `cool_category_3`
 
-Можно добавлять `climate.*` и `script.*` устройства. При выборе категории интеграция активирует устройства накопительно (`cat1`, затем `cat1+cat2`, затем `cat1+cat2+cat3`).
+В категориях выбираются `climate.*` устройства. Интеграция активирует категории накопительно:
+- категория 1 -> только `cat1`
+- категория 2 -> `cat1 + cat2`
+- категория 3 -> `cat1 + cat2 + cat3`
 
 Также задаются:
 - `weather_sensitive_climates` — климатические устройства, которые ограничиваются наружной температурой;
 - `shared_climates` — устройства, обслуживающие несколько комнат (участвуют через арбитраж shared demand).
+
+## Настройка (подробно)
+
+1. В Config Flow выбери источник наружной температуры:
+   - `weather` или `sensor`,
+   - политику при отсутствии наружной температуры.
+2. Для каждой комнаты укажи:
+   - `room_name`,
+   - `temp_sensors`,
+   - `heat_category_1/2/3`,
+   - `cool_category_1/2/3`,
+   - `weather_sensitive_climates`,
+   - `shared_climates`,
+   - `dumb_devices_json`.
+3. В Options Flow настрой:
+   - режим (`off/per_room/global`) и тип (`normal/fast/extreme`),
+   - global/per-room target и tolerance,
+   - пороги включения категорий 2 и 3 для heat/cool,
+   - safe outdoor ranges,
+   - after_reach поведение,
+   - shared arbitration.
+
+### Dumb устройства
+
+Для dumb-устройств обязательно указывать **оба** скрипта: включение и выключение.
+
+Поле `dumb_devices_json` принимает массив:
+
+```json
+[
+  {
+    "on_script": "script.room1_heater_on",
+    "off_script": "script.room1_heater_off",
+    "device_type": "heat",
+    "participation": "until_reach_target",
+    "category": 2
+  }
+]
+```
+
+Поля:
+- `on_script` — обязательно, `script.*`
+- `off_script` — обязательно, `script.*`
+- `device_type` — `heat` или `cool`
+- `participation` — `off` | `always_on` | `until_reach_target`
+- `category` — `1` | `2` | `3` (с какой категории устройство начинает участвовать)
 
 ## Релиз под HACS
 

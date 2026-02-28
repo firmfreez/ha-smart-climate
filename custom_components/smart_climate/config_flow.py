@@ -95,11 +95,6 @@ from .const import (
     DEFAULT_TYPE,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
-    DUMB_DEVICE_COOL,
-    DUMB_DEVICE_HEAT,
-    DUMB_PARTICIPATION_ALWAYS,
-    DUMB_PARTICIPATION_OFF,
-    DUMB_PARTICIPATION_UNTIL_TARGET,
     MODE_GLOBAL,
     MODE_OFF,
     MODE_PER_ROOM,
@@ -112,6 +107,7 @@ from .const import (
     TYPE_FAST,
     TYPE_NORMAL,
 )
+from .dumb import parse_dumb_devices_json
 
 
 class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -122,47 +118,6 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._config: dict[str, Any] = {}
         self._rooms: list[dict[str, Any]] = []
-
-    @staticmethod
-    def _parse_dumb_devices(raw: str) -> list[dict[str, str]]:
-        if not raw.strip():
-            return []
-
-        value = json.loads(raw)
-        if not isinstance(value, list):
-            raise ValueError("dumb devices must be a list")
-
-        parsed: list[dict[str, str]] = []
-        allowed_types = {DUMB_DEVICE_HEAT, DUMB_DEVICE_COOL}
-        allowed_participation = {
-            DUMB_PARTICIPATION_OFF,
-            DUMB_PARTICIPATION_ALWAYS,
-            DUMB_PARTICIPATION_UNTIL_TARGET,
-        }
-        for item in value:
-            if not isinstance(item, dict):
-                raise ValueError("dumb device entry must be an object")
-            on_script = item.get("on_script")
-            off_script = item.get("off_script")
-            device_type = item.get("device_type")
-            participation = item.get("participation")
-            if not on_script or not off_script:
-                raise ValueError("dumb device requires on_script and off_script")
-            if not str(on_script).startswith("script.") or not str(off_script).startswith("script."):
-                raise ValueError("dumb scripts must be script.* entities")
-            if device_type not in allowed_types:
-                raise ValueError("dumb device_type must be heat or cool")
-            if participation not in allowed_participation:
-                raise ValueError("invalid dumb participation")
-            parsed.append(
-                {
-                    "on_script": str(on_script),
-                    "off_script": str(off_script),
-                    "device_type": str(device_type),
-                    "participation": str(participation),
-                }
-            )
-        return parsed
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Initial step with global configuration."""
@@ -233,7 +188,7 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 room_id = slugify(user_input[CONF_ROOM_NAME])
-                dumb_devices = self._parse_dumb_devices(user_input.get("dumb_devices_json", ""))
+                dumb_devices = parse_dumb_devices_json(user_input.get("dumb_devices_json", ""))
                 room = {
                     CONF_ROOM_ID: room_id,
                     CONF_ROOM_NAME: user_input[CONF_ROOM_NAME],

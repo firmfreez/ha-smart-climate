@@ -68,8 +68,7 @@ from .const import (
     CONF_UPDATE_INTERVAL,
     COORDINATOR_DEBOUNCE_SECONDS,
     DEFAULT_UPDATE_INTERVAL,
-    DUMB_DEVICE_COOL,
-    DUMB_DEVICE_HEAT,
+    DUMB_DEFAULT_CATEGORY,
     DUMB_PARTICIPATION_ALWAYS,
     DUMB_PARTICIPATION_OFF,
     DUMB_PARTICIPATION_UNTIL_TARGET,
@@ -93,6 +92,7 @@ from .engine import (
     mode_hvac,
     next_phase_and_offset,
     select_category,
+    should_activate_dumb_device,
     should_reenter_boost,
     within_target,
 )
@@ -164,6 +164,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 off_script = dumb.get("off_script")
                 device_type = dumb.get("device_type")
                 participation = dumb.get("participation", DUMB_PARTICIPATION_UNTIL_TARGET)
+                category = int(dumb.get("category", DUMB_DEFAULT_CATEGORY))
                 if not on_script or not off_script:
                     continue
                 dumb_devices.append(
@@ -172,6 +173,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         off_script=off_script,
                         device_type=device_type,
                         participation=participation,
+                        category=category,
                     )
                 )
                 if device_type == "heat":
@@ -532,13 +534,17 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if await self._async_call_service_entity(entity_id, "script", "turn_on"):
                     active.append(entity_id)
 
-        if category >= 2:
-            target_type = DUMB_DEVICE_HEAT if is_heating else DUMB_DEVICE_COOL
-            for dumb in room.dumb_devices:
-                if dumb.device_type != target_type or dumb.participation == DUMB_PARTICIPATION_OFF:
-                    continue
-                if await self._async_call_service_entity(dumb.on_script, "script", "turn_on"):
-                    active.append(dumb.on_script)
+        for dumb in room.dumb_devices:
+            if not should_activate_dumb_device(
+                room_category=category,
+                device_category=dumb.category,
+                room_is_heating=is_heating,
+                device_type=dumb.device_type,
+                participation=dumb.participation,
+            ):
+                continue
+            if await self._async_call_service_entity(dumb.on_script, "script", "turn_on"):
+                active.append(dumb.on_script)
 
         return active
 
@@ -712,6 +718,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "off_script": dumb.off_script,
                     "device_type": dumb.device_type,
                     "participation": dumb.participation,
+                    "category": dumb.category,
                 }
                 for dumb in room.dumb_devices
             ],
