@@ -95,17 +95,11 @@ from .const import (
     DEFAULT_TYPE,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
-    MODE_GLOBAL,
-    MODE_OFF,
-    MODE_PER_ROOM,
     OUTDOOR_POLICY_ALLOW,
     OUTDOOR_POLICY_BLOCK,
     OUTDOOR_SOURCE_NONE,
     OUTDOOR_SOURCE_SENSOR,
     OUTDOOR_SOURCE_WEATHER,
-    TYPE_EXTREME,
-    TYPE_FAST,
-    TYPE_NORMAL,
 )
 from .dumb import parse_dumb_devices_json
 
@@ -281,21 +275,10 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_menu(step_id="init", menu_options=menu_options)
 
     async def async_step_settings(self, user_input: dict[str, Any] | None = None):
-        errors: dict[str, str] = {}
-
         if user_input is not None:
-            try:
-                per_room_targets = self._parse_json_map(user_input.get("per_room_targets_json", "{}"), float)
-                per_room_tolerances = self._parse_json_map(user_input.get("per_room_tolerances_json", "{}"), float)
-                room_enabled = self._parse_json_map(user_input.get("room_enabled_json", "{}"), bool)
-
-                options = dict(self._entry.options)
-                options.update(
-                    {
-                    CONF_MODE: user_input[CONF_MODE],
-                    CONF_TYPE: user_input[CONF_TYPE],
-                    CONF_GLOBAL_TARGET: user_input[CONF_GLOBAL_TARGET],
-                    CONF_GLOBAL_TOLERANCE: user_input[CONF_GLOBAL_TOLERANCE],
+            options = dict(self._entry.options)
+            options.update(
+                {
                     CONF_TOLERANCE: user_input[CONF_TOLERANCE],
                     CONF_T_TIME: int(user_input[CONF_T_TIME]),
                     CONF_UPDATE_INTERVAL: int(user_input[CONF_UPDATE_INTERVAL]),
@@ -318,46 +301,14 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                     CONF_AFTER_REACH_DUMB: user_input[CONF_AFTER_REACH_DUMB],
                     CONF_SHARED_ARBITRATION: user_input[CONF_SHARED_ARBITRATION],
                     CONF_PRIORITY_ROOM: user_input.get(CONF_PRIORITY_ROOM, ""),
-                    CONF_PER_ROOM_TARGETS: per_room_targets,
-                    CONF_PER_ROOM_TOLERANCES: per_room_tolerances,
-                    CONF_ROOM_ENABLED: room_enabled,
-                    }
-                )
-                self._sanitize_room_dependent_options(options, set(self._room_ids()))
-                return self.async_create_entry(title="", data=options)
-            except ValueError:
-                errors["base"] = "invalid_json"
+                }
+            )
+            self._sanitize_room_dependent_options(options, set(self._room_ids()))
+            return self.async_create_entry(title="", data=options)
 
         options = self._entry.options
         schema = vol.Schema(
             {
-                vol.Required(CONF_MODE, default=options.get(CONF_MODE, DEFAULT_MODE)): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[
-                            {"value": MODE_OFF, "label": "Off"},
-                            {"value": MODE_PER_ROOM, "label": "Per room"},
-                            {"value": MODE_GLOBAL, "label": "Global"},
-                        ],
-                        mode="dropdown",
-                    )
-                ),
-                vol.Required(CONF_TYPE, default=options.get(CONF_TYPE, DEFAULT_TYPE)): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[
-                            {"value": TYPE_NORMAL, "label": "Normal"},
-                            {"value": TYPE_FAST, "label": "Fast"},
-                            {"value": TYPE_EXTREME, "label": "Extreme"},
-                        ],
-                        mode="dropdown",
-                    )
-                ),
-                vol.Required(
-                    CONF_GLOBAL_TARGET, default=options.get(CONF_GLOBAL_TARGET, DEFAULT_GLOBAL_TARGET)
-                ): NumberSelector(NumberSelectorConfig(min=5, max=35, step=0.1, mode=NumberSelectorMode.BOX)),
-                vol.Required(
-                    CONF_GLOBAL_TOLERANCE,
-                    default=options.get(CONF_GLOBAL_TOLERANCE, DEFAULT_GLOBAL_TOLERANCE),
-                ): NumberSelector(NumberSelectorConfig(min=0.1, max=5, step=0.1, mode=NumberSelectorMode.BOX)),
                 vol.Required(CONF_TOLERANCE, default=options.get(CONF_TOLERANCE, DEFAULT_TOLERANCE)): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=5, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
@@ -458,22 +409,10 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_PRIORITY_ROOM, default=options.get(CONF_PRIORITY_ROOM, "")): TextSelector(
                     TextSelectorConfig()
                 ),
-                vol.Optional(
-                    "per_room_targets_json",
-                    default=json.dumps(options.get(CONF_PER_ROOM_TARGETS, {}), ensure_ascii=False),
-                ): TextSelector(TextSelectorConfig(multiline=True)),
-                vol.Optional(
-                    "per_room_tolerances_json",
-                    default=json.dumps(options.get(CONF_PER_ROOM_TOLERANCES, {}), ensure_ascii=False),
-                ): TextSelector(TextSelectorConfig(multiline=True)),
-                vol.Optional(
-                    "room_enabled_json",
-                    default=json.dumps(options.get(CONF_ROOM_ENABLED, {}), ensure_ascii=False),
-                ): TextSelector(TextSelectorConfig(multiline=True)),
             }
         )
 
-        return self.async_show_form(step_id="settings", data_schema=schema, errors=errors)
+        return self.async_show_form(step_id="settings", data_schema=schema)
 
     async def async_step_add_room(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}

@@ -275,32 +275,56 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _sync_update_interval(self) -> None:
         self.update_interval = timedelta(seconds=int(self._opt(CONF_UPDATE_INTERVAL)))
 
+    def _persist_option(self, key: str, value: Any) -> None:
+        options = dict(self.config_entry.options)
+        if options.get(key) == value:
+            return
+        options[key] = value
+        self.hass.config_entries.async_update_entry(self.config_entry, options=options)
+
+    def _persist_option_map_value(self, key: str, map_key: str, value: Any) -> None:
+        options = dict(self.config_entry.options)
+        current_raw = options.get(key, {})
+        current_map = dict(current_raw) if isinstance(current_raw, dict) else {}
+        if current_map.get(map_key) == value:
+            return
+        current_map[map_key] = value
+        options[key] = current_map
+        self.hass.config_entries.async_update_entry(self.config_entry, options=options)
+
     async def async_set_mode(self, value: str) -> None:
         self._overrides[CONF_MODE] = value
+        self._persist_option(CONF_MODE, value)
         await self.async_request_refresh()
 
     async def async_set_type(self, value: str) -> None:
         self._overrides[CONF_TYPE] = value
+        self._persist_option(CONF_TYPE, value)
         await self.async_request_refresh()
 
     async def async_set_global_target(self, value: float) -> None:
         self._overrides[CONF_GLOBAL_TARGET] = value
+        self._persist_option(CONF_GLOBAL_TARGET, value)
         await self.async_request_refresh()
 
     async def async_set_global_tolerance(self, value: float) -> None:
         self._overrides[CONF_GLOBAL_TOLERANCE] = value
+        self._persist_option(CONF_GLOBAL_TOLERANCE, value)
         await self.async_request_refresh()
 
     async def async_set_room_enabled(self, room_id: str, value: bool) -> None:
         self._overrides[CONF_ROOM_ENABLED][room_id] = value
+        self._persist_option_map_value(CONF_ROOM_ENABLED, room_id, value)
         await self.async_request_refresh()
 
     async def async_set_room_target(self, room_id: str, value: float) -> None:
         self._overrides[CONF_PER_ROOM_TARGETS][room_id] = value
+        self._persist_option_map_value(CONF_PER_ROOM_TARGETS, room_id, value)
         await self.async_request_refresh()
 
     async def async_set_room_tolerance(self, room_id: str, value: float) -> None:
         self._overrides[CONF_PER_ROOM_TOLERANCES][room_id] = value
+        self._persist_option_map_value(CONF_PER_ROOM_TOLERANCES, room_id, value)
         await self.async_request_refresh()
 
     async def _async_update_data(self) -> dict[str, Any]:

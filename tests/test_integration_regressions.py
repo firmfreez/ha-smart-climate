@@ -10,6 +10,7 @@ from custom_components.smart_climate.const import DEFAULT_MODE, MODE_OFF
 ROOT = Path(__file__).resolve().parents[1]
 NUMBER_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "number.py"
 SELECT_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "select.py"
+COORDINATOR = ROOT / "custom_components" / "smart_climate" / "coordinator.py"
 
 
 def _class_def(module: ast.Module, class_name: str) -> ast.ClassDef:
@@ -44,3 +45,15 @@ def test_select_platform_does_not_restore_mode_or_type_from_last_state() -> None
     assert "async_get_last_state" not in source
     assert "async_set_mode(last_state.state)" not in source
     assert "async_set_type(last_state.state)" not in source
+
+
+def test_runtime_entity_changes_are_persisted_to_entry_options() -> None:
+    source = COORDINATOR.read_text(encoding="utf-8")
+    assert "async_update_entry(self.config_entry, options=options)" in source
+    assert "self._persist_option(CONF_MODE, value)" in source
+    assert "self._persist_option(CONF_TYPE, value)" in source
+    assert "self._persist_option(CONF_GLOBAL_TARGET, value)" in source
+    assert "self._persist_option(CONF_GLOBAL_TOLERANCE, value)" in source
+    assert "self._persist_option_map_value(CONF_ROOM_ENABLED, room_id, value)" in source
+    assert "self._persist_option_map_value(CONF_PER_ROOM_TARGETS, room_id, value)" in source
+    assert "self._persist_option_map_value(CONF_PER_ROOM_TOLERANCES, room_id, value)" in source

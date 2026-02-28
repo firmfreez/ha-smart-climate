@@ -54,7 +54,7 @@
       },
       "settings": {
         "title": "Control settings",
-        "description": "Main control logic, thresholds and per-room overrides.",
+        "description": "Complex engineering settings. Daily control (mode, targets, room on/off) is done via entities in Lovelace.",
         "data": {
           "mode": "Work mode",
           "type": "Control profile",
