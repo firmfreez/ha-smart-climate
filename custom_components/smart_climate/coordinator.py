@@ -692,12 +692,12 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             threshold = float(self._opt(CONF_MIN_OUTDOOR_FOR_HEATPUMP))
             if control_type == TYPE_FAST:
                 threshold = float(self._opt(CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST))
-            return outdoor_temp >= threshold
+            return outdoor_temp <= threshold
 
         threshold = float(self._opt(CONF_MAX_OUTDOOR_FOR_COOL))
         if control_type == TYPE_FAST:
             threshold = float(self._opt(CONF_MAX_OUTDOOR_FOR_COOL_FAST))
-        return outdoor_temp <= threshold
+        return outdoor_temp >= threshold
 
     async def _async_apply_room_actions(
         self,

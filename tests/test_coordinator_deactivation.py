@@ -245,10 +245,10 @@ def test_ac_allowed_uses_profile_specific_outdoor_thresholds() -> None:
     }
     coordinator._opt = MethodType(lambda self, key: opts[key], coordinator)  # type: ignore[attr-defined]
 
-    assert coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_NORMAL)
-    assert not coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_FAST)
+    assert not coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_NORMAL)
+    assert coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_FAST)
     assert coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_EXTREME)
 
-    assert coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_NORMAL)
-    assert not coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_FAST)
+    assert not coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_NORMAL)
+    assert coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_FAST)
     assert coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_EXTREME)
