@@ -64,6 +64,17 @@ if "homeassistant" not in sys.modules:
     sys.modules["homeassistant.util.dt"] = util_dt
 
 from custom_components.smart_climate.coordinator import SmartClimateCoordinator
+from custom_components.smart_climate.const import (
+    CONF_AC_MISSING_OUTDOOR_POLICY,
+    CONF_MAX_OUTDOOR_FOR_COOL,
+    CONF_MAX_OUTDOOR_FOR_COOL_FAST,
+    CONF_MIN_OUTDOOR_FOR_HEATPUMP,
+    CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST,
+    OUTDOOR_POLICY_ALLOW,
+    TYPE_EXTREME,
+    TYPE_FAST,
+    TYPE_NORMAL,
+)
 from custom_components.smart_climate.models import DumbDeviceConfig, RoomConfig, RoomRuntime
 
 
@@ -162,3 +173,82 @@ def test_deactivate_non_active_does_not_turn_off_shared_and_active_dumb() -> Non
     assert ("script.dual_off", "script", "turn_on") not in calls
     # cool-only dumb device must be turned off.
     assert ("script.cool_only_off", "script", "turn_on") in calls
+
+
+def test_shared_priority_room_reduces_setpoint_to_target_when_no_demand() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    room_id = "kitchen"
+    climate_id = "climate.floor_shared"
+    calls: list[dict[str, object]] = []
+
+    coordinator._shared_map = {climate_id: [room_id]}  # type: ignore[attr-defined]
+    coordinator._runtime = {  # type: ignore[attr-defined]
+        room_id: RoomRuntime(
+            enabled=True,
+            current_temp=25.0,
+            target_temp=25.0,
+            tolerance=0.3,
+            current_offset=2.0,
+        )
+    }
+
+    coordinator._room_enabled = MethodType(lambda self, rid: rid == room_id, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_target = MethodType(lambda self, rid: 25.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_tolerance = MethodType(lambda self, rid: 0.3, coordinator)  # type: ignore[attr-defined]
+    coordinator._opt = MethodType(  # type: ignore[attr-defined]
+        lambda self, key: {"shared_arbitration": "priority_room", "priority_room": room_id, "type": "normal"}[key],
+        coordinator,
+    )
+
+    async def _fake_set_climate(
+        self,
+        entity_id: str,
+        target: float,
+        is_heating: bool,
+        control_type: str,
+        offset: float,
+        skip_hvac: bool = False,
+    ) -> dict[str, object]:
+        calls.append(
+            {
+                "entity_id": entity_id,
+                "target": target,
+                "is_heating": is_heating,
+                "control_type": control_type,
+                "offset": offset,
+                "skip_hvac": skip_hvac,
+            }
+        )
+        return {"sent": True, "active": True}
+
+    coordinator._async_set_climate = MethodType(_fake_set_climate, coordinator)  # type: ignore[attr-defined]
+
+    asyncio.run(coordinator._async_apply_shared({}))
+
+    assert calls
+    call = calls[0]
+    assert call["entity_id"] == climate_id
+    assert call["target"] == 25.0
+    # Within tolerance: should drop to target without extra offset and avoid hvac mode flip.
+    assert call["offset"] == 0.0
+    assert call["skip_hvac"] is True
+
+
+def test_ac_allowed_uses_profile_specific_outdoor_thresholds() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    opts = {
+        CONF_AC_MISSING_OUTDOOR_POLICY: OUTDOOR_POLICY_ALLOW,
+        CONF_MIN_OUTDOOR_FOR_HEATPUMP: 10.0,
+        CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST: 15.0,
+        CONF_MAX_OUTDOOR_FOR_COOL: 25.0,
+        CONF_MAX_OUTDOOR_FOR_COOL_FAST: 20.0,
+    }
+    coordinator._opt = MethodType(lambda self, key: opts[key], coordinator)  # type: ignore[attr-defined]
+
+    assert coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_NORMAL)
+    assert not coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_FAST)
+    assert coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_EXTREME)
+
+    assert coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_NORMAL)
+    assert not coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_FAST)
+    assert coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_EXTREME)

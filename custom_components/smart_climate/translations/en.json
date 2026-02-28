@@ -77,7 +77,9 @@
           "cool_category2_diff": "Cooling diff to enable category 2",
           "cool_category3_diff": "Cooling diff to enable category 3",
           "min_outdoor_for_heatpump": "Min outdoor temp for heat-pump heating",
+          "min_outdoor_for_heatpump_fast": "Min outdoor temp for fast heat-pump heating",
           "max_outdoor_for_cool": "Max outdoor temp for cooling",
+          "max_outdoor_for_cool_fast": "Max outdoor temp for fast cooling",
           "after_reach_smart": "After-reach behavior for climate devices",
           "after_reach_dumb": "After-reach behavior for script devices",
           "shared_arbitration": "Shared-device arbitration",
@@ -108,7 +110,9 @@
           "cool_category2_diff": "If current-target exceeds this value, category 2 joins cooling.",
           "cool_category3_diff": "If current-target exceeds this value, category 3 joins cooling.",
           "min_outdoor_for_heatpump": "Below this outdoor temp, weather-sensitive heating climates are blocked.",
+          "min_outdoor_for_heatpump_fast": "Below this outdoor temp, weather-sensitive heating climates are blocked in Fast profile.",
           "max_outdoor_for_cool": "Above this outdoor temp, weather-sensitive cooling climates are blocked.",
+          "max_outdoor_for_cool_fast": "Above this outdoor temp, weather-sensitive cooling climates are blocked in Fast profile.",
           "after_reach_smart": "What to do with climate.* devices after target is reached.",
           "after_reach_dumb": "What to do with script-driven devices after target is reached.",
           "shared_arbitration": "How one shared climate chooses request from multiple rooms.",
@@ -222,6 +226,35 @@
       },
       "room_decision": {
         "name": "Decision"
+      },
+      "room_target_temp": {
+        "name": "Target Temperature"
+      },
+      "room_tolerance": {
+        "name": "Tolerance"
+      },
+      "room_temp_delta": {
+        "name": "Delta To Target"
+      },
+      "room_demand": {
+        "name": "Demand",
+        "state": {
+          "none": "None",
+          "heat": "Heat",
+          "cool": "Cool"
+        }
+      },
+      "room_demand_delta": {
+        "name": "Demand Delta"
+      },
+      "room_active_category": {
+        "name": "Active Category"
+      },
+      "room_active_devices_count": {
+        "name": "Active Devices"
+      },
+      "room_boost_elapsed": {
+        "name": "Boost Elapsed"
       },
       "room_last_action": {
         "name": "Last Action"

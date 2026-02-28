@@ -84,6 +84,7 @@ def test_climate_commands_are_not_sent_when_state_already_matches() -> None:
     assert "abs(float(current_setpoint) - setpoint) > 0.05" in source
     assert 'elif "auto" in hvac_modes' in source
     assert '"climate",\n                    "turn_on"' in source
+    assert "result[\"active\"] = True" in source
 
 
 def test_room_phase_sensor_uses_phase_reason_as_primary_state() -> None:

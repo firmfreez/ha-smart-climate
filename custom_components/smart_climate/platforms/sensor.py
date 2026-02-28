@@ -23,6 +23,14 @@ async def async_setup_entry(
 
     for room_id in coordinator.room_ids:
         entities.append(RoomCurrentTempSensor(coordinator, room_id))
+        entities.append(RoomTargetTempSensor(coordinator, room_id))
+        entities.append(RoomToleranceSensor(coordinator, room_id))
+        entities.append(RoomTempDeltaSensor(coordinator, room_id))
+        entities.append(RoomDemandSensor(coordinator, room_id))
+        entities.append(RoomDemandDeltaSensor(coordinator, room_id))
+        entities.append(RoomActiveCategorySensor(coordinator, room_id))
+        entities.append(RoomActiveDevicesCountSensor(coordinator, room_id))
+        entities.append(RoomBoostElapsedSensor(coordinator, room_id))
         entities.append(RoomPhaseSensor(coordinator, room_id))
         entities.append(RoomDecisionSensor(coordinator, room_id))
         entities.append(RoomLastActionSensor(coordinator, room_id))
@@ -51,6 +59,194 @@ class RoomCurrentTempSensor(SmartClimateEntity, SensorEntity):
         room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
         value = room.get("current_temp")
         return float(value) if value is not None else None
+
+
+class RoomTargetTempSensor(SmartClimateEntity, SensorEntity):
+    """Current room target temperature."""
+
+    _attr_translation_key = "room_target_temp"
+    _attr_icon = "mdi:thermometer-check"
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_target_temp_sensor"
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        value = room.get("target_temp")
+        return float(value) if value is not None else None
+
+
+class RoomToleranceSensor(SmartClimateEntity, SensorEntity):
+    """Effective room tolerance."""
+
+    _attr_translation_key = "room_tolerance"
+    _attr_icon = "mdi:vector-difference"
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_tolerance_sensor"
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        value = room.get("tolerance")
+        return float(value) if value is not None else None
+
+
+class RoomTempDeltaSensor(SmartClimateEntity, SensorEntity):
+    """Signed delta between current and target temperature."""
+
+    _attr_translation_key = "room_temp_delta"
+    _attr_icon = "mdi:thermometer-lines"
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_temp_delta"
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        current = room.get("current_temp")
+        target = room.get("target_temp")
+        if current is None or target is None:
+            return None
+        return round(float(current) - float(target), 2)
+
+
+class RoomDemandSensor(SmartClimateEntity, SensorEntity):
+    """Current room demand direction."""
+
+    _attr_translation_key = "room_demand"
+    _attr_icon = "mdi:hvac"
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_demand"
+
+    @property
+    def native_value(self) -> str | None:
+        if not self.coordinator.data:
+            return None
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        demand = room.get("demand")
+        return demand if isinstance(demand, str) else "none"
+
+
+class RoomDemandDeltaSensor(SmartClimateEntity, SensorEntity):
+    """Magnitude of current demand outside target band."""
+
+    _attr_translation_key = "room_demand_delta"
+    _attr_icon = "mdi:chart-line"
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_demand_delta"
+
+    @property
+    def native_value(self) -> float:
+        if not self.coordinator.data:
+            return 0.0
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        value = room.get("demand_delta")
+        if value is None:
+            return 0.0
+        return float(value)
+
+
+class RoomActiveCategorySensor(SmartClimateEntity, SensorEntity):
+    """Currently active category for room demand."""
+
+    _attr_translation_key = "room_active_category"
+    _attr_icon = "mdi:numeric"
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_active_category"
+
+    @property
+    def native_value(self) -> int:
+        if not self.coordinator.data:
+            return 0
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        demand = room.get("demand")
+        if demand == "heat":
+            return int(room.get("active_category_heat", 0))
+        if demand == "cool":
+            return int(room.get("active_category_cool", 0))
+        return 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        if not self.coordinator.data:
+            return {}
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        return {
+            "active_category_heat": room.get("active_category_heat", 0),
+            "active_category_cool": room.get("active_category_cool", 0),
+        }
+
+
+class RoomActiveDevicesCountSensor(SmartClimateEntity, SensorEntity):
+    """Count of currently active room-local devices."""
+
+    _attr_translation_key = "room_active_devices_count"
+    _attr_icon = "mdi:counter"
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_active_devices_count"
+
+    @property
+    def native_value(self) -> int:
+        if not self.coordinator.data:
+            return 0
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        active_devices = room.get("active_devices", [])
+        return len(active_devices) if isinstance(active_devices, list) else 0
+
+
+class RoomBoostElapsedSensor(SmartClimateEntity, SensorEntity):
+    """Elapsed boost time in seconds."""
+
+    _attr_translation_key = "room_boost_elapsed"
+    _attr_icon = "mdi:timer-outline"
+    _attr_native_unit_of_measurement = "s"
+
+    def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
+        super().__init__(coordinator)
+        self._room_id = room_id
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_boost_elapsed"
+
+    @property
+    def native_value(self) -> int:
+        if not self.coordinator.data:
+            return 0
+        room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
+        return int(room.get("boost_elapsed_seconds", 0))
 
 
 class RoomPhaseSensor(SmartClimateEntity, SensorEntity):
