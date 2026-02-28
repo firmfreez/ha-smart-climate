@@ -113,9 +113,9 @@
           "after_reach_dumb": "Что делать со script-устройствами после достижения цели.",
           "shared_arbitration": "Как shared climate выбирает запрос при конфликте нескольких комнат.",
           "priority_room": "ID комнаты для режима арбитража Priority room.",
-          "per_room_targets_json": "Словарь вида {\"bedroom\": 22.5}. Переопределяет целевую температуру по комнатам.",
-          "per_room_tolerances_json": "Словарь вида {\"bedroom\": 0.4}. Переопределяет толерантность по комнатам.",
-          "room_enabled_json": "Словарь вида {\"bedroom\": true}. Включает/выключает автоматику по комнатам."
+          "per_room_targets_json": "Пример: bedroom=22.5. Переопределяет целевую температуру по комнатам.",
+          "per_room_tolerances_json": "Пример: bedroom=0.4. Переопределяет толерантность по комнатам.",
+          "room_enabled_json": "Пример: bedroom=true. Включает или выключает автоматику по комнатам."
         }
       },
       "add_room": {

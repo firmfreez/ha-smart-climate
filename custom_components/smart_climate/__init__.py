@@ -13,6 +13,13 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+try:
+    from homeassistant.helpers import config_validation as cv
+
+    CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+except ModuleNotFoundError:  # pragma: no cover - local unit tests run without Home Assistant deps
+    CONFIG_SCHEMA = None
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up integration from yaml (not used)."""

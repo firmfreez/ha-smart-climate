@@ -113,9 +113,9 @@
           "after_reach_dumb": "What to do with script-driven devices after target is reached.",
           "shared_arbitration": "How one shared climate chooses request from multiple rooms.",
           "priority_room": "Room ID used only when arbitration is set to Priority room.",
-          "per_room_targets_json": "Map like {\"bedroom\": 22.5}. Overrides room target temperatures.",
-          "per_room_tolerances_json": "Map like {\"bedroom\": 0.4}. Overrides room tolerances.",
-          "room_enabled_json": "Map like {\"bedroom\": true}. Enables/disables automation per room."
+          "per_room_targets_json": "Example: bedroom=22.5. Overrides room target temperatures.",
+          "per_room_tolerances_json": "Example: bedroom=0.4. Overrides room tolerances.",
+          "room_enabled_json": "Example: bedroom=true. Enables or disables automation per room."
         }
       },
       "add_room": {
