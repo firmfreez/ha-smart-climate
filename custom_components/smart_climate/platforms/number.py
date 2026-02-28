@@ -29,7 +29,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class BaseSmartClimateNumber(SmartClimateEntity, NumberEntity, RestoreNumber):
+class BaseSmartClimateNumber(SmartClimateEntity, RestoreNumber):
     """Base number entity with restore support."""
 
     _attr_native_min_value = 5.0
