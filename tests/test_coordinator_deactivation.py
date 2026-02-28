@@ -63,7 +63,6 @@ if "homeassistant" not in sys.modules:
     util_dt.utcnow = _dt.datetime.utcnow
     sys.modules["homeassistant.util.dt"] = util_dt
 
-from custom_components.smart_climate.coordinator import SmartClimateCoordinator
 from custom_components.smart_climate.const import (
     CONF_AC_MISSING_OUTDOOR_POLICY,
     CONF_MAX_OUTDOOR_FOR_COOL,
@@ -75,6 +74,7 @@ from custom_components.smart_climate.const import (
     TYPE_FAST,
     TYPE_NORMAL,
 )
+from custom_components.smart_climate.coordinator import SmartClimateCoordinator
 from custom_components.smart_climate.models import DumbDeviceConfig, RoomConfig, RoomRuntime
 
 
