@@ -21,11 +21,6 @@ except ModuleNotFoundError:  # pragma: no cover - local unit tests run without H
     CONFIG_SCHEMA = None
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up integration from yaml (not used)."""
-    return True
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Smart Climate from a config entry."""
     from homeassistant.const import Platform
