@@ -49,6 +49,7 @@ from .const import (
     CONF_ROOM_COOL_CATEGORY_1,
     CONF_ROOM_COOL_CATEGORY_2,
     CONF_ROOM_COOL_CATEGORY_3,
+    CONF_ROOM_DUMB_DEVICES,
     CONF_ROOM_ENABLED,
     CONF_ROOM_HEAT_CATEGORY_1,
     CONF_ROOM_HEAT_CATEGORY_2,
@@ -67,6 +68,11 @@ from .const import (
     CONF_UPDATE_INTERVAL,
     COORDINATOR_DEBOUNCE_SECONDS,
     DEFAULT_UPDATE_INTERVAL,
+    DUMB_DEVICE_COOL,
+    DUMB_DEVICE_HEAT,
+    DUMB_PARTICIPATION_ALWAYS,
+    DUMB_PARTICIPATION_OFF,
+    DUMB_PARTICIPATION_UNTIL_TARGET,
     MODE_GLOBAL,
     MODE_OFF,
     OPTIONS_DEFAULTS,
@@ -90,7 +96,7 @@ from .engine import (
     should_reenter_boost,
     within_target,
 )
-from .models import DeviceActionState, RoomConfig, RoomRuntime
+from .models import DeviceActionState, DumbDeviceConfig, RoomConfig, RoomRuntime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -151,11 +157,23 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             legacy_heat_cat3 = room_data.get("ac_climates", [])
             legacy_heat_cat2: list[str] = []
             legacy_cool_cat2: list[str] = []
-            for dumb in room_data.get("dumb_devices", []):
+            dumb_entries = room_data.get(CONF_ROOM_DUMB_DEVICES, room_data.get("dumb_devices", []))
+            dumb_devices: list[DumbDeviceConfig] = []
+            for dumb in dumb_entries:
                 on_script = dumb.get("on_script")
+                off_script = dumb.get("off_script")
                 device_type = dumb.get("device_type")
-                if not on_script:
+                participation = dumb.get("participation", DUMB_PARTICIPATION_UNTIL_TARGET)
+                if not on_script or not off_script:
                     continue
+                dumb_devices.append(
+                    DumbDeviceConfig(
+                        on_script=on_script,
+                        off_script=off_script,
+                        device_type=device_type,
+                        participation=participation,
+                    )
+                )
                 if device_type == "heat":
                     legacy_heat_cat2.append(on_script)
                 elif device_type == "cool":
@@ -171,6 +189,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 cool_category_2=room_data.get(CONF_ROOM_COOL_CATEGORY_2, legacy_cool_cat2),
                 cool_category_3=room_data.get(CONF_ROOM_COOL_CATEGORY_3, []),
                 weather_sensitive_climates=room_data.get(CONF_ROOM_WEATHER_SENSITIVE_CLIMATES, legacy_heat_cat3),
+                dumb_devices=dumb_devices,
                 shared_climates=room_data.get(CONF_ROOM_SHARED_CLIMATES, room_data.get("shared_climates", [])),
             )
             self._rooms[room.room_id] = room
@@ -513,6 +532,14 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if await self._async_call_service_entity(entity_id, "script", "turn_on"):
                     active.append(entity_id)
 
+        if category >= 2:
+            target_type = DUMB_DEVICE_HEAT if is_heating else DUMB_DEVICE_COOL
+            for dumb in room.dumb_devices:
+                if dumb.device_type != target_type or dumb.participation == DUMB_PARTICIPATION_OFF:
+                    continue
+                if await self._async_call_service_entity(dumb.on_script, "script", "turn_on"):
+                    active.append(dumb.on_script)
+
         return active
 
     async def _async_apply_after_reach(self, room: RoomConfig, runtime: RoomRuntime) -> None:
@@ -525,14 +552,6 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             + merge_categories(room.cool_category_1, room.cool_category_2, room.cool_category_3, 3)
             if entity_id.startswith("climate.")
-        }
-        all_scripts = {
-            entity_id
-            for entity_id in merge_categories(
-                room.heat_category_1, room.heat_category_2, room.heat_category_3, 3
-            )
-            + merge_categories(room.cool_category_1, room.cool_category_2, room.cool_category_3, 3)
-            if entity_id.startswith("script.")
         }
 
         if smart_behavior == AFTER_REACH_KEEP_ON:
@@ -555,9 +574,14 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     continue
                 await self._async_call_service_entity(climate_entity, "climate", "turn_off")
 
-        if dumb_behavior == AFTER_REACH_TURN_OFF:
-            for script_entity in all_scripts:
-                await self._async_call_service_entity(script_entity, "script", "turn_off")
+        for dumb in room.dumb_devices:
+            if dumb.participation == DUMB_PARTICIPATION_OFF:
+                continue
+            if dumb.participation == DUMB_PARTICIPATION_UNTIL_TARGET:
+                await self._async_call_service_entity(dumb.off_script, "script", "turn_on")
+                continue
+            if dumb.participation == DUMB_PARTICIPATION_ALWAYS and dumb_behavior == AFTER_REACH_TURN_OFF:
+                await self._async_call_service_entity(dumb.off_script, "script", "turn_on")
 
     async def _async_apply_shared(self, demands: dict[str, list[tuple[str, str, float]]]) -> None:
         strategy = self._opt(CONF_SHARED_ARBITRATION)
@@ -682,6 +706,15 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "cool_category_2": room.cool_category_2,
             "cool_category_3": room.cool_category_3,
             "weather_sensitive_climates": room.weather_sensitive_climates,
+            "dumb_devices": [
+                {
+                    "on_script": dumb.on_script,
+                    "off_script": dumb.off_script,
+                    "device_type": dumb.device_type,
+                    "participation": dumb.participation,
+                }
+                for dumb in room.dumb_devices
+            ],
             "shared_climates": room.shared_climates,
         }
 

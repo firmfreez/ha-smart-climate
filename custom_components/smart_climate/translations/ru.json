@@ -27,6 +27,7 @@
           "cool_category_3": "Устройства охлаждения категории 3",
           "weather_sensitive_climates": "Погодочувствительные climate устройства",
           "shared_climates": "Shared climate устройства",
+          "dumb_devices_json": "JSON dumb-устройств (on_script/off_script/type/participation)",
           "add_another_room": "Добавить еще комнату"
         }
       }

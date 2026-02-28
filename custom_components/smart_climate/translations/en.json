@@ -27,6 +27,7 @@
           "cool_category_3": "Cooling category 3 devices",
           "weather_sensitive_climates": "Weather-sensitive climates",
           "shared_climates": "Shared climates",
+          "dumb_devices_json": "Dumb devices JSON (on_script/off_script/type/participation)",
           "add_another_room": "Add one more room"
         }
       }
