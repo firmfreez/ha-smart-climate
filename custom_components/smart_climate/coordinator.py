@@ -293,6 +293,60 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             for dumb in room.dumb_devices
         )
 
+    @staticmethod
+    def _room_mode_entities(room: RoomConfig, is_heating: bool, category: int) -> set[str]:
+        if is_heating:
+            merged = merge_categories(room.heat_category_1, room.heat_category_2, room.heat_category_3, category)
+        else:
+            merged = merge_categories(room.cool_category_1, room.cool_category_2, room.cool_category_3, category)
+        return set(merged)
+
+    async def _async_deactivate_non_active_entities(
+        self,
+        room: RoomConfig,
+        is_heating: bool,
+        category: int,
+        ac_allowed: bool,
+    ) -> None:
+        """Turn off room devices that are not part of current active set."""
+        current_entities = self._room_mode_entities(room, is_heating, category)
+        current_entities_filtered = set(
+            filter_weather_sensitive(
+                list(current_entities),
+                set(room.weather_sensitive_climates),
+                ac_allowed,
+            )
+        )
+
+        active_current_climates = {e for e in current_entities_filtered if e.startswith("climate.")}
+        active_current_dumb_on = {
+            dumb.on_script
+            for dumb in room.dumb_devices
+            if should_activate_dumb_device(
+                room_category=category,
+                device_category=dumb.category,
+                room_is_heating=is_heating,
+                device_type=dumb.device_type,
+                participation=dumb.participation,
+            )
+        }
+
+        all_room_climates = {
+            entity_id
+            for entity_id in self._room_mode_entities(room, True, 3) | self._room_mode_entities(room, False, 3)
+            if entity_id.startswith("climate.")
+        }
+        climates_to_turn_off = all_room_climates - active_current_climates - set(room.shared_climates)
+        for climate_entity in climates_to_turn_off:
+            await self._async_call_service_entity(climate_entity, "climate", "turn_off")
+
+        for dumb in room.dumb_devices:
+            if dumb.participation == DUMB_PARTICIPATION_OFF:
+                continue
+            if dumb.on_script in active_current_dumb_on:
+                continue
+            await self._async_call_service_entity(dumb.off_script, "script", "turn_on")
+
     def _persist_option(self, key: str, value: Any) -> None:
         options = dict(self.config_entry.options)
         if options.get(key) == value:
@@ -582,6 +636,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> list[str]:
         active: list[str] = []
         ac_allowed = self._ac_allowed(self._read_outdoor_temp(), is_heating)
+        await self._async_deactivate_non_active_entities(room, is_heating, category, ac_allowed)
 
         if is_heating:
             category_entities = merge_categories(

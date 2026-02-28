@@ -86,3 +86,10 @@ def test_room_with_no_temperature_is_excluded_from_control_and_shared() -> None:
     source = COORDINATOR.read_text(encoding="utf-8")
     assert "runtime.enabled = False" in source
     assert "self._runtime[room_id].current_temp is not None" in source
+
+
+def test_opposite_mode_turn_off_skips_devices_present_in_both_modes() -> None:
+    source = COORDINATOR.read_text(encoding="utf-8")
+    assert "async def _async_deactivate_non_active_entities" in source
+    assert "all_room_climates - active_current_climates - set(room.shared_climates)" in source
+    assert "if dumb.on_script in active_current_dumb_on" in source
