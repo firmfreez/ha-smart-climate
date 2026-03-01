@@ -2,9 +2,6 @@
   "filename": "smart_climate.zip",
   "name": "Умный климат",
   "content_in_root": false,
-  "domains": [
-    "smart_climate"
-  ],
   "render_readme": true,
   "homeassistant": "2024.8.0",
   "zip_release": true
