@@ -5,3 +5,5 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .venv/
+dist/
+smart_climate.zip
