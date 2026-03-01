@@ -35,6 +35,9 @@ async def async_setup_entry(
         entities.append(RoomDecisionSensor(coordinator, room_id))
         entities.append(RoomLastActionSensor(coordinator, room_id))
 
+    for climate_entity in coordinator.shared_climate_ids:
+        entities.append(SharedWinnerRoomSensor(coordinator, climate_entity))
+
     async_add_entities(entities)
 
 
@@ -382,3 +385,41 @@ class RoomLastActionSensor(SmartClimateEntity, SensorEntity):
         room = self.coordinator.data.get("rooms", {}).get(self._room_id, {})
         action_log = room.get("action_log", [])
         return {"action_log": action_log if isinstance(action_log, list) else []}
+
+
+class SharedWinnerRoomSensor(SmartClimateEntity, SensorEntity):
+    """Diagnostic winner-room for shared climate arbitration."""
+
+    _attr_icon = "mdi:account-star"
+
+    def __init__(self, coordinator: SmartClimateCoordinator, climate_entity: str) -> None:
+        super().__init__(coordinator)
+        self._climate_entity = climate_entity
+        self._attr_name = f"{climate_entity} Shared Winner Room"
+        safe_id = climate_entity.replace(".", "_")
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{safe_id}_shared_winner_room"
+
+    @property
+    def native_value(self) -> str:
+        if not self.coordinator.data:
+            return "none"
+        winners = self.coordinator.data.get("shared_winner_rooms", {})
+        if not isinstance(winners, dict):
+            return "none"
+        winner = winners.get(self._climate_entity)
+        if not isinstance(winner, str) or not winner:
+            return "none"
+        if winner == "average":
+            return "average"
+        return self.coordinator.room_name(winner)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        if not self.coordinator.data:
+            return {"shared_climate": self._climate_entity}
+        winners = self.coordinator.data.get("shared_winner_rooms", {})
+        winner = winners.get(self._climate_entity) if isinstance(winners, dict) else None
+        return {
+            "shared_climate": self._climate_entity,
+            "winner_room_id": winner if isinstance(winner, str) else None,
+        }

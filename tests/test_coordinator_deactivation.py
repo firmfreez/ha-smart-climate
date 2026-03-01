@@ -223,7 +223,7 @@ def test_shared_priority_room_reduces_setpoint_to_target_when_no_demand() -> Non
 
     coordinator._async_set_climate = MethodType(_fake_set_climate, coordinator)  # type: ignore[attr-defined]
 
-    asyncio.run(coordinator._async_apply_shared({}))
+    winners = asyncio.run(coordinator._async_apply_shared({}))
 
     assert calls
     call = calls[0]
@@ -232,6 +232,7 @@ def test_shared_priority_room_reduces_setpoint_to_target_when_no_demand() -> Non
     # Within tolerance: should drop to target without extra offset and avoid hvac mode flip.
     assert call["offset"] == 0.0
     assert call["skip_hvac"] is True
+    assert winners == {climate_id: room_id}
 
 
 def test_weather_sensitive_allowed_uses_global_window_and_normal_heuristics() -> None:
@@ -290,3 +291,14 @@ def test_weather_sensitive_allowed_uses_global_window_and_normal_heuristics() ->
         is_heating=False,
         control_type=TYPE_EXTREME,
     )
+
+
+def test_resolve_priority_room_accepts_room_name_and_slug() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    coordinator._rooms = {  # type: ignore[attr-defined]
+        "kuhnya": RoomConfig(room_id="kuhnya", name="Кухня"),
+    }
+
+    assert coordinator._resolve_priority_room_id("kuhnya") == "kuhnya"
+    assert coordinator._resolve_priority_room_id("Кухня") == "kuhnya"
+    assert coordinator._resolve_priority_room_id("kitchen") is None

@@ -6,7 +6,7 @@ from datetime import timedelta
 
 DOMAIN = "smart_climate"
 NAME = "Умный климат"
-VERSION = "0.1.23"
+VERSION = "0.1.24"
 
 PLATFORMS = ["select", "number", "switch", "sensor"]
 

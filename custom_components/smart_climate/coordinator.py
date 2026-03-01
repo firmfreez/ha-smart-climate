@@ -16,6 +16,12 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+try:
+    from homeassistant.util import slugify as ha_slugify
+except ImportError:  # pragma: no cover - fallback for lightweight test stubs
+    def ha_slugify(value: str) -> str:
+        return value.strip().lower()
+
 from .const import (
     CONF_AC_MISSING_OUTDOOR_POLICY,
     CONF_AGGREGATION,
@@ -640,7 +646,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 demand_delta=demand_delta,
             )
 
-        await self._async_apply_shared(shared_demands)
+        shared_winner_rooms = await self._async_apply_shared(shared_demands)
 
         return {
             "mode": self._opt(CONF_MODE),
@@ -648,6 +654,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "global_target": self._opt(CONF_GLOBAL_TARGET),
             "global_tolerance": self._opt(CONF_GLOBAL_TOLERANCE),
             "outdoor_temp": outdoor_temp,
+            "shared_winner_rooms": shared_winner_rooms,
             "rooms": room_payload,
         }
 
@@ -838,9 +845,10 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     reason="after_reach_target",
                 )
 
-    async def _async_apply_shared(self, demands: dict[str, list[tuple[str, str, float]]]) -> None:
+    async def _async_apply_shared(self, demands: dict[str, list[tuple[str, str, float]]]) -> dict[str, str]:
         strategy = self._opt(CONF_SHARED_ARBITRATION)
-        priority_room = self._opt(CONF_PRIORITY_ROOM)
+        priority_room = self._resolve_priority_room_id(self._opt(CONF_PRIORITY_ROOM))
+        winner_rooms: dict[str, str] = {}
         climate_entities = (
             list(self._shared_map.keys())
             if strategy == "priority_room" and priority_room
@@ -893,6 +901,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     offset=offset,
                     skip_hvac=diff_heat <= tolerance and diff_cool <= tolerance,
                 )
+                winner_rooms[climate_entity] = priority_room
                 continue
             elif strategy == "average_request":
                 if not climate_demands:
@@ -905,10 +914,12 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 else:
                     avg = sum(item[2] for item in cool) / max(len(cool), 1)
                     selected = ("avg", "cool", avg)
+                winner_rooms[climate_entity] = "average"
             else:
                 if not climate_demands:
                     continue
                 selected = max(climate_demands, key=lambda item: item[2])
+                winner_rooms[climate_entity] = selected[0]
 
             is_heating = selected[1] == "heat"
             target = max(self._room_target(room_id) for room_id in involved_rooms)
@@ -922,6 +933,31 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 control_type=self._opt(CONF_TYPE),
                 offset=float(self._opt(CONF_STEP_OFFSET)),
             )
+        return winner_rooms
+
+    def _resolve_priority_room_id(self, value: Any) -> str | None:
+        """Resolve priority room from id, name, or slugified name."""
+        if value is None:
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+
+        rooms = getattr(self, "_rooms", None)
+        if not isinstance(rooms, dict):
+            return raw
+
+        if raw in rooms:
+            return raw
+
+        raw_lower = raw.lower()
+        raw_slug = ha_slugify(raw)
+        for room_id, room in rooms.items():
+            if room.name.lower() == raw_lower:
+                return room_id
+            if ha_slugify(room.name) == raw_slug:
+                return room_id
+        return None
 
     async def _async_set_climate(
         self,
@@ -1104,3 +1140,8 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Return room display name."""
         room = self._rooms.get(room_id)
         return room.name if room else room_id
+
+    @property
+    def shared_climate_ids(self) -> list[str]:
+        """Expose shared climate ids for sensor entities."""
+        return list(self._shared_map.keys())
