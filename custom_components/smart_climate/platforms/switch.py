@@ -6,7 +6,6 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 
 from ..const import DOMAIN
 from ..coordinator import SmartClimateCoordinator
@@ -22,7 +21,7 @@ async def async_setup_entry(
     async_add_entities([RoomEnabledSwitch(coordinator, room_id) for room_id in coordinator.room_ids])
 
 
-class RoomEnabledSwitch(SmartClimateEntity, SwitchEntity, RestoreEntity):
+class RoomEnabledSwitch(SmartClimateEntity, SwitchEntity):
     """Enable/disable automation in a room."""
 
     _attr_icon = "mdi:toggle-switch"
@@ -44,10 +43,3 @@ class RoomEnabledSwitch(SmartClimateEntity, SwitchEntity, RestoreEntity):
 
     async def async_turn_off(self, **kwargs) -> None:
         await self.coordinator.async_set_room_enabled(self._room_id, False)
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        last_state = await self.async_get_last_state()
-        if last_state is None:
-            return
-        await self.coordinator.async_set_room_enabled(self._room_id, last_state.state == "on")

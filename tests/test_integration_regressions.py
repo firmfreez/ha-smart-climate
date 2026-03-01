@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 NUMBER_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "number.py"
 SELECT_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "select.py"
 SENSOR_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "sensor.py"
+SWITCH_PLATFORM = ROOT / "custom_components" / "smart_climate" / "platforms" / "switch.py"
 COORDINATOR = ROOT / "custom_components" / "smart_climate" / "coordinator.py"
 
 
@@ -98,6 +99,12 @@ def test_room_phase_sensor_uses_phase_reason_as_primary_state() -> None:
 def test_number_platform_does_not_restore_last_number_state() -> None:
     source = NUMBER_PLATFORM.read_text(encoding="utf-8")
     assert "async_get_last_number_data" not in source
+
+
+def test_switch_platform_does_not_restore_last_switch_state() -> None:
+    source = SWITCH_PLATFORM.read_text(encoding="utf-8")
+    assert "RestoreEntity" not in source
+    assert "async_get_last_state" not in source
 
 
 def test_room_with_no_temperature_is_excluded_from_control_and_shared() -> None:
