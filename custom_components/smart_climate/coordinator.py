@@ -23,6 +23,7 @@ from .const import (
     CONF_COOL_CATEGORY2_DIFF,
     CONF_COOL_CATEGORY3_DIFF,
     CONF_COOL_MEDIUM,
+    CONF_COOL_OUTDOOR_TARGET_DELTA,
     CONF_DELTA,
     CONF_GLOBAL_TARGET,
     CONF_GLOBAL_TOLERANCE,
@@ -30,13 +31,12 @@ from .const import (
     CONF_HEAT_CATEGORY2_DIFF,
     CONF_HEAT_CATEGORY3_DIFF,
     CONF_HEAT_MEDIUM,
+    CONF_HEAT_OUTDOOR_TARGET_DELTA,
     CONF_MAX_OFFSET,
-    CONF_MAX_OUTDOOR_FOR_COOL,
-    CONF_MAX_OUTDOOR_FOR_COOL_FAST,
     CONF_MIN_ACTION_INTERVAL,
-    CONF_MIN_OUTDOOR_FOR_HEATPUMP,
-    CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST,
     CONF_MODE,
+    CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE,
+    CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE,
     CONF_OUTDOOR_SENSOR,
     CONF_OUTDOOR_SOURCE_TYPE,
     CONF_OUTDOOR_WEATHER,
@@ -555,7 +555,12 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if heat_needed:
                 demand = "heat"
                 demand_delta = diff_heat
-                ac_allowed = self._ac_allowed(outdoor_temp, is_heating=True, control_type=control_type)
+                weather_sensitive_allowed = self._weather_sensitive_allowed(
+                    outdoor_temp=outdoor_temp,
+                    target=target,
+                    is_heating=True,
+                    control_type=control_type,
+                )
                 if not self._room_has_capability(room, is_heating=True):
                     phase_reason = "no_heating_devices"
                 category = select_category(
@@ -564,7 +569,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         float(self._opt(CONF_HEAT_CATEGORY2_DIFF) or self._opt(CONF_HEAT_MEDIUM)),
                         float(self._opt(CONF_HEAT_CATEGORY3_DIFF) or self._opt(CONF_HEAT_BIG)),
                     ),
-                    ac_allowed,
+                    weather_sensitive_allowed,
                 )
                 runtime.active_category_heat = category
                 runtime.active_devices = await self._async_apply_room_actions(
@@ -573,7 +578,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     is_heating=True,
                     category=category,
                     control_type=control_type,
-                    ac_allowed=ac_allowed,
+                    weather_sensitive_allowed=weather_sensitive_allowed,
                 )
                 if phase_reason is None and not runtime.active_devices:
                     phase_reason = "no_devices_activated"
@@ -587,7 +592,12 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             elif cool_needed:
                 demand = "cool"
                 demand_delta = diff_cool
-                ac_allowed = self._ac_allowed(outdoor_temp, is_heating=False, control_type=control_type)
+                weather_sensitive_allowed = self._weather_sensitive_allowed(
+                    outdoor_temp=outdoor_temp,
+                    target=target,
+                    is_heating=False,
+                    control_type=control_type,
+                )
                 if not self._room_has_capability(room, is_heating=False):
                     phase_reason = "no_cooling_devices"
                 category = select_category(
@@ -596,7 +606,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         float(self._opt(CONF_COOL_CATEGORY2_DIFF) or self._opt(CONF_COOL_MEDIUM)),
                         float(self._opt(CONF_COOL_CATEGORY3_DIFF) or self._opt(CONF_COOL_BIG)),
                     ),
-                    ac_allowed,
+                    weather_sensitive_allowed,
                 )
                 runtime.active_category_cool = category
                 runtime.active_devices = await self._async_apply_room_actions(
@@ -605,7 +615,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     is_heating=False,
                     category=category,
                     control_type=control_type,
-                    ac_allowed=ac_allowed,
+                    weather_sensitive_allowed=weather_sensitive_allowed,
                 )
                 if phase_reason is None and not runtime.active_devices:
                     phase_reason = "no_devices_activated"
@@ -682,22 +692,33 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except ValueError:
             return None
 
-    def _ac_allowed(self, outdoor_temp: float | None, is_heating: bool, control_type: str) -> bool:
-        if control_type == TYPE_EXTREME:
-            return True
+    def _weather_sensitive_allowed(
+        self,
+        *,
+        outdoor_temp: float | None,
+        target: float,
+        is_heating: bool,
+        control_type: str,
+    ) -> bool:
         if outdoor_temp is None:
             return self._opt(CONF_AC_MISSING_OUTDOOR_POLICY) != OUTDOOR_POLICY_BLOCK
 
-        if is_heating:
-            threshold = float(self._opt(CONF_MIN_OUTDOOR_FOR_HEATPUMP))
-            if control_type == TYPE_FAST:
-                threshold = float(self._opt(CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST))
-            return outdoor_temp <= threshold
+        # Global outdoor window for all weather-sensitive devices (point #1).
+        min_outdoor = float(self._opt(CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE))
+        max_outdoor = float(self._opt(CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE))
+        if outdoor_temp < min_outdoor or outdoor_temp > max_outdoor:
+            return False
 
-        threshold = float(self._opt(CONF_MAX_OUTDOOR_FOR_COOL))
-        if control_type == TYPE_FAST:
-            threshold = float(self._opt(CONF_MAX_OUTDOOR_FOR_COOL_FAST))
-        return outdoor_temp >= threshold
+        # Fast/Extreme ignore "open window" heuristics (points #2/#3).
+        if control_type in (TYPE_FAST, TYPE_EXTREME):
+            return True
+
+        if is_heating:
+            heat_delta = float(self._opt(CONF_HEAT_OUTDOOR_TARGET_DELTA))
+            return outdoor_temp < (target + heat_delta)
+
+        cool_delta = float(self._opt(CONF_COOL_OUTDOOR_TARGET_DELTA))
+        return outdoor_temp > (target - cool_delta)
 
     async def _async_apply_room_actions(
         self,
@@ -706,10 +727,16 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         is_heating: bool,
         category: int,
         control_type: str,
-        ac_allowed: bool,
+        weather_sensitive_allowed: bool,
     ) -> list[str]:
         active: list[str] = []
-        await self._async_deactivate_non_active_entities(room, runtime, is_heating, category, ac_allowed)
+        await self._async_deactivate_non_active_entities(
+            room,
+            runtime,
+            is_heating,
+            category,
+            weather_sensitive_allowed,
+        )
 
         if is_heating:
             category_entities = merge_categories(
@@ -723,7 +750,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for entity_id in filter_weather_sensitive(
             category_entities,
             set(room.weather_sensitive_climates),
-            ac_allowed,
+            weather_sensitive_allowed,
         ):
             if entity_id.startswith("climate."):
                 if entity_id in room.shared_climates:

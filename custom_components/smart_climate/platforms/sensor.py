@@ -73,6 +73,7 @@ class RoomTargetTempSensor(SmartClimateEntity, SensorEntity):
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
         super().__init__(coordinator)
         self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Target Temp"
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_target_temp_sensor"
 
     @property
@@ -95,6 +96,7 @@ class RoomToleranceSensor(SmartClimateEntity, SensorEntity):
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
         super().__init__(coordinator)
         self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Tolerance"
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_tolerance_sensor"
 
     @property
@@ -117,6 +119,7 @@ class RoomTempDeltaSensor(SmartClimateEntity, SensorEntity):
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
         super().__init__(coordinator)
         self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Delta To Target"
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_temp_delta"
 
     @property
@@ -140,6 +143,7 @@ class RoomDemandSensor(SmartClimateEntity, SensorEntity):
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
         super().__init__(coordinator)
         self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Demand"
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_demand"
 
     @property
@@ -162,6 +166,7 @@ class RoomDemandDeltaSensor(SmartClimateEntity, SensorEntity):
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
         super().__init__(coordinator)
         self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Demand Delta"
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_demand_delta"
 
     @property
@@ -184,6 +189,7 @@ class RoomActiveCategorySensor(SmartClimateEntity, SensorEntity):
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
         super().__init__(coordinator)
         self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Active Category"
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_active_category"
 
     @property
@@ -218,6 +224,7 @@ class RoomActiveDevicesCountSensor(SmartClimateEntity, SensorEntity):
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
         super().__init__(coordinator)
         self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Active Devices"
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_active_devices_count"
 
     @property
@@ -239,6 +246,7 @@ class RoomBoostElapsedSensor(SmartClimateEntity, SensorEntity):
     def __init__(self, coordinator: SmartClimateCoordinator, room_id: str) -> None:
         super().__init__(coordinator)
         self._room_id = room_id
+        self._attr_name = f"{coordinator.room_name(room_id)} Boost Elapsed"
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{room_id}_boost_elapsed"
 
     @property

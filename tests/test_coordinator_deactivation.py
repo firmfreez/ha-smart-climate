@@ -65,10 +65,10 @@ if "homeassistant" not in sys.modules:
 
 from custom_components.smart_climate.const import (
     CONF_AC_MISSING_OUTDOOR_POLICY,
-    CONF_MAX_OUTDOOR_FOR_COOL,
-    CONF_MAX_OUTDOOR_FOR_COOL_FAST,
-    CONF_MIN_OUTDOOR_FOR_HEATPUMP,
-    CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST,
+    CONF_COOL_OUTDOOR_TARGET_DELTA,
+    CONF_HEAT_OUTDOOR_TARGET_DELTA,
+    CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE,
+    CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE,
     OUTDOOR_POLICY_ALLOW,
     TYPE_EXTREME,
     TYPE_FAST,
@@ -234,21 +234,59 @@ def test_shared_priority_room_reduces_setpoint_to_target_when_no_demand() -> Non
     assert call["skip_hvac"] is True
 
 
-def test_ac_allowed_uses_profile_specific_outdoor_thresholds() -> None:
+def test_weather_sensitive_allowed_uses_global_window_and_normal_heuristics() -> None:
     coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
     opts = {
         CONF_AC_MISSING_OUTDOOR_POLICY: OUTDOOR_POLICY_ALLOW,
-        CONF_MIN_OUTDOOR_FOR_HEATPUMP: 10.0,
-        CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST: 15.0,
-        CONF_MAX_OUTDOOR_FOR_COOL: 25.0,
-        CONF_MAX_OUTDOOR_FOR_COOL_FAST: 20.0,
+        CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE: 0.0,
+        CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE: 35.0,
+        CONF_COOL_OUTDOOR_TARGET_DELTA: 2.0,
+        CONF_HEAT_OUTDOOR_TARGET_DELTA: 2.0,
     }
     coordinator._opt = MethodType(lambda self, key: opts[key], coordinator)  # type: ignore[attr-defined]
 
-    assert not coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_NORMAL)
-    assert coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_FAST)
-    assert coordinator._ac_allowed(12.0, is_heating=True, control_type=TYPE_EXTREME)
+    assert not coordinator._weather_sensitive_allowed(
+        outdoor_temp=25.0,
+        target=22.0,
+        is_heating=True,
+        control_type=TYPE_NORMAL,
+    )
+    assert coordinator._weather_sensitive_allowed(
+        outdoor_temp=25.0,
+        target=22.0,
+        is_heating=True,
+        control_type=TYPE_FAST,
+    )
+    assert coordinator._weather_sensitive_allowed(
+        outdoor_temp=25.0,
+        target=22.0,
+        is_heating=True,
+        control_type=TYPE_EXTREME,
+    )
 
-    assert not coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_NORMAL)
-    assert coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_FAST)
-    assert coordinator._ac_allowed(24.0, is_heating=False, control_type=TYPE_EXTREME)
+    assert not coordinator._weather_sensitive_allowed(
+        outdoor_temp=20.0,
+        target=22.0,
+        is_heating=False,
+        control_type=TYPE_NORMAL,
+    )
+    assert coordinator._weather_sensitive_allowed(
+        outdoor_temp=20.0,
+        target=22.0,
+        is_heating=False,
+        control_type=TYPE_FAST,
+    )
+    assert coordinator._weather_sensitive_allowed(
+        outdoor_temp=20.0,
+        target=22.0,
+        is_heating=False,
+        control_type=TYPE_EXTREME,
+    )
+
+    # Global outdoor window should block all profiles.
+    assert not coordinator._weather_sensitive_allowed(
+        outdoor_temp=-5.0,
+        target=22.0,
+        is_heating=False,
+        control_type=TYPE_EXTREME,
+    )

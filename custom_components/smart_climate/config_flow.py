@@ -29,6 +29,7 @@ from .const import (
     CONF_COOL_CATEGORY2_DIFF,
     CONF_COOL_CATEGORY3_DIFF,
     CONF_COOL_MEDIUM,
+    CONF_COOL_OUTDOOR_TARGET_DELTA,
     CONF_COOL_SMALL,
     CONF_GLOBAL_TARGET,
     CONF_GLOBAL_TOLERANCE,
@@ -36,14 +37,13 @@ from .const import (
     CONF_HEAT_CATEGORY2_DIFF,
     CONF_HEAT_CATEGORY3_DIFF,
     CONF_HEAT_MEDIUM,
+    CONF_HEAT_OUTDOOR_TARGET_DELTA,
     CONF_HEAT_SMALL,
     CONF_MAX_OFFSET,
-    CONF_MAX_OUTDOOR_FOR_COOL,
-    CONF_MAX_OUTDOOR_FOR_COOL_FAST,
     CONF_MIN_ACTION_INTERVAL,
-    CONF_MIN_OUTDOOR_FOR_HEATPUMP,
-    CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST,
     CONF_MODE,
+    CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE,
+    CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE,
     CONF_OUTDOOR_SENSOR,
     CONF_OUTDOOR_SOURCE_TYPE,
     CONF_OUTDOOR_WEATHER,
@@ -78,6 +78,7 @@ from .const import (
     DEFAULT_COOL_CATEGORY2_DIFF,
     DEFAULT_COOL_CATEGORY3_DIFF,
     DEFAULT_COOL_MEDIUM,
+    DEFAULT_COOL_OUTDOOR_TARGET_DELTA,
     DEFAULT_COOL_SMALL,
     DEFAULT_GLOBAL_TARGET,
     DEFAULT_GLOBAL_TOLERANCE,
@@ -85,14 +86,13 @@ from .const import (
     DEFAULT_HEAT_CATEGORY2_DIFF,
     DEFAULT_HEAT_CATEGORY3_DIFF,
     DEFAULT_HEAT_MEDIUM,
+    DEFAULT_HEAT_OUTDOOR_TARGET_DELTA,
     DEFAULT_HEAT_SMALL,
     DEFAULT_MAX_OFFSET,
-    DEFAULT_MAX_OUTDOOR_FOR_COOL,
-    DEFAULT_MAX_OUTDOOR_FOR_COOL_FAST,
     DEFAULT_MIN_ACTION_INTERVAL,
-    DEFAULT_MIN_OUTDOOR_FOR_HEATPUMP,
-    DEFAULT_MIN_OUTDOOR_FOR_HEATPUMP_FAST,
     DEFAULT_MODE,
+    DEFAULT_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE,
+    DEFAULT_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE,
     DEFAULT_STEP_OFFSET,
     DEFAULT_T_TIME,
     DEFAULT_TOLERANCE,
@@ -280,6 +280,10 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_settings(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
+            outdoor_min = float(user_input[CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE])
+            outdoor_max = float(user_input[CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE])
+            if outdoor_min > outdoor_max:
+                outdoor_min, outdoor_max = outdoor_max, outdoor_min
             options = dict(self._entry.options)
             options.update(
                 {
@@ -299,10 +303,10 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                     CONF_COOL_BIG: user_input[CONF_COOL_BIG],
                     CONF_COOL_CATEGORY2_DIFF: user_input[CONF_COOL_CATEGORY2_DIFF],
                     CONF_COOL_CATEGORY3_DIFF: user_input[CONF_COOL_CATEGORY3_DIFF],
-                    CONF_MIN_OUTDOOR_FOR_HEATPUMP: user_input[CONF_MIN_OUTDOOR_FOR_HEATPUMP],
-                    CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST: user_input[CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST],
-                    CONF_MAX_OUTDOOR_FOR_COOL: user_input[CONF_MAX_OUTDOOR_FOR_COOL],
-                    CONF_MAX_OUTDOOR_FOR_COOL_FAST: user_input[CONF_MAX_OUTDOOR_FOR_COOL_FAST],
+                    CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE: outdoor_min,
+                    CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE: outdoor_max,
+                    CONF_COOL_OUTDOOR_TARGET_DELTA: user_input[CONF_COOL_OUTDOOR_TARGET_DELTA],
+                    CONF_HEAT_OUTDOOR_TARGET_DELTA: user_input[CONF_HEAT_OUTDOOR_TARGET_DELTA],
                     CONF_AFTER_REACH_SMART: user_input[CONF_AFTER_REACH_SMART],
                     CONF_AFTER_REACH_DUMB: user_input[CONF_AFTER_REACH_DUMB],
                     CONF_SHARED_ARBITRATION: user_input[CONF_SHARED_ARBITRATION],
@@ -369,27 +373,33 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                     default=options.get(CONF_COOL_CATEGORY3_DIFF, DEFAULT_COOL_CATEGORY3_DIFF),
                 ): NumberSelector(NumberSelectorConfig(min=0.1, max=20, step=0.1, mode=NumberSelectorMode.BOX)),
                 vol.Required(
-                    CONF_MIN_OUTDOOR_FOR_HEATPUMP,
-                    default=options.get(CONF_MIN_OUTDOOR_FOR_HEATPUMP, DEFAULT_MIN_OUTDOOR_FOR_HEATPUMP),
-                ): NumberSelector(NumberSelectorConfig(min=-40, max=30, step=0.5, mode=NumberSelectorMode.BOX)),
-                vol.Required(
-                    CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST,
+                    CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE,
                     default=options.get(
-                        CONF_MIN_OUTDOOR_FOR_HEATPUMP_FAST,
-                        DEFAULT_MIN_OUTDOOR_FOR_HEATPUMP_FAST,
+                        CONF_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE,
+                        DEFAULT_OUTDOOR_MIN_FOR_WEATHER_SENSITIVE,
                     ),
-                ): NumberSelector(NumberSelectorConfig(min=-40, max=30, step=0.5, mode=NumberSelectorMode.BOX)),
+                ): NumberSelector(NumberSelectorConfig(min=-40, max=60, step=0.5, mode=NumberSelectorMode.BOX)),
                 vol.Required(
-                    CONF_MAX_OUTDOOR_FOR_COOL,
-                    default=options.get(CONF_MAX_OUTDOOR_FOR_COOL, DEFAULT_MAX_OUTDOOR_FOR_COOL),
-                ): NumberSelector(NumberSelectorConfig(min=10, max=60, step=0.5, mode=NumberSelectorMode.BOX)),
-                vol.Required(
-                    CONF_MAX_OUTDOOR_FOR_COOL_FAST,
+                    CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE,
                     default=options.get(
-                        CONF_MAX_OUTDOOR_FOR_COOL_FAST,
-                        DEFAULT_MAX_OUTDOOR_FOR_COOL_FAST,
+                        CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE,
+                        DEFAULT_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE,
                     ),
-                ): NumberSelector(NumberSelectorConfig(min=10, max=60, step=0.5, mode=NumberSelectorMode.BOX)),
+                ): NumberSelector(NumberSelectorConfig(min=-40, max=60, step=0.5, mode=NumberSelectorMode.BOX)),
+                vol.Required(
+                    CONF_COOL_OUTDOOR_TARGET_DELTA,
+                    default=options.get(
+                        CONF_COOL_OUTDOOR_TARGET_DELTA,
+                        DEFAULT_COOL_OUTDOOR_TARGET_DELTA,
+                    ),
+                ): NumberSelector(NumberSelectorConfig(min=0.0, max=20, step=0.1, mode=NumberSelectorMode.BOX)),
+                vol.Required(
+                    CONF_HEAT_OUTDOOR_TARGET_DELTA,
+                    default=options.get(
+                        CONF_HEAT_OUTDOOR_TARGET_DELTA,
+                        DEFAULT_HEAT_OUTDOOR_TARGET_DELTA,
+                    ),
+                ): NumberSelector(NumberSelectorConfig(min=0.0, max=20, step=0.1, mode=NumberSelectorMode.BOX)),
                 vol.Required(
                     CONF_AFTER_REACH_SMART,
                     default=options.get(CONF_AFTER_REACH_SMART, DEFAULT_AFTER_REACH_SMART),
