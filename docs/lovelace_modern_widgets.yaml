@@ -1,0 +1,185 @@
+# Modern widgets for Lovelace (Smart Climate + home status)
+# Requires custom cards from HACS:
+# - Mushroom (strategy and cards)
+# - stack-in-card
+# Optional:
+# - card-mod (for deeper style tweaks)
+#
+# How to use:
+# 1) Open Dashboard -> Edit -> Raw configuration editor.
+# 2) Paste desired card blocks from this file.
+# 3) Replace example entity_ids with your own.
+
+# -------------------------------------------------------------------
+# 1) SPACES WIDGET (in style: "Пространства")
+# -------------------------------------------------------------------
+type: custom:stack-in-card
+mode: vertical
+cards:
+  - type: markdown
+    content: |
+      ## Пространства
+
+  - type: custom:mushroom-template-card
+    icon: mdi:home-thermometer
+    primary: Среднее по дому
+    secondary: >
+      {{ states('sensor.umnyi_klimat_home_average_temp') }} °C
+    icon_color: blue-grey
+    layout: horizontal
+    tap_action:
+      action: more-info
+      entity: sensor.umnyi_klimat_home_average_temp
+
+  - type: grid
+    columns: 3
+    square: false
+    cards:
+      - type: custom:mushroom-template-card
+        icon: mdi:sofa-outline
+        icon_color: brown
+        primary: Зал
+        secondary: >
+          🌡 {{ states('sensor.umnyi_klimat_zal_current_temp') }} °C
+        tap_action:
+          action: more-info
+          entity: sensor.umnyi_klimat_zal_current_temp
+
+      - type: custom:mushroom-template-card
+        icon: mdi:bed-king-outline
+        icon_color: amber
+        primary: Спальня
+        secondary: >
+          🌡 {{ states('sensor.umnyi_klimat_spalnia_current_temp') }} °C
+        tap_action:
+          action: more-info
+          entity: sensor.umnyi_klimat_spalnia_current_temp
+
+      - type: custom:mushroom-template-card
+        icon: mdi:fridge-outline
+        icon_color: green
+        primary: Кухня
+        secondary: >
+          🌡 {{ states('sensor.umnyi_klimat_kukhnia_current_temp') }} °C
+        tap_action:
+          action: more-info
+          entity: sensor.umnyi_klimat_kukhnia_current_temp
+
+      - type: custom:mushroom-template-card
+        icon: mdi:shower
+        icon_color: light-blue
+        primary: Ванная
+        secondary: >
+          🌡 {{ states('sensor.umnyi_klimat_vannaia_current_temp') }} °C
+        tap_action:
+          action: more-info
+          entity: sensor.umnyi_klimat_vannaia_current_temp
+
+      - type: custom:mushroom-template-card
+        icon: mdi:door
+        icon_color: pink
+        primary: Коридор
+        secondary: >
+          🌡 {{ states('sensor.umnyi_klimat_koridor_current_temp') }} °C
+        tap_action:
+          action: more-info
+          entity: sensor.umnyi_klimat_koridor_current_temp
+
+      - type: custom:mushroom-template-card
+        icon: mdi:weather-partly-cloudy
+        icon_color: cyan
+        primary: Улица
+        secondary: >
+          🌡 {{ states('sensor.umnyi_klimat_outdoor_temp') }} °C
+        tap_action:
+          action: more-info
+          entity: sensor.umnyi_klimat_outdoor_temp
+
+# -------------------------------------------------------------------
+# 2) NOTIFICATIONS WIDGET (in style: "Уведомления")
+# -------------------------------------------------------------------
+---
+type: custom:stack-in-card
+mode: vertical
+cards:
+  - type: markdown
+    content: |
+      ## Уведомления
+
+  - type: markdown
+    content: >
+      **🪟 Окна**
+
+      {% set open_windows = expand('group.windows_all') | selectattr('state','eq','on') |
+      map(attribute='name') | list %}
+      {% if open_windows | count > 0 %}
+      Открыты: {{ open_windows | join(', ') }}
+      {% else %}
+      Закрыты
+      {% endif %}
+
+  - type: markdown
+    content: >
+      **🚪 Двери**
+
+      {% set open_doors = expand('group.doors_all') | selectattr('state','eq','on') |
+      map(attribute='name') | list %}
+      {% if open_doors | count > 0 %}
+      Открыты: {{ open_doors | join(', ') }}
+      {% else %}
+      Закрыты
+      {% endif %}
+
+  - type: markdown
+    content: >
+      **🤖 Пылесос**
+
+      Статус: {{ states('vacuum.robot') }} • Батарея: {{ state_attr('vacuum.robot',
+      'battery_level') }}%
+
+  - type: markdown
+    content: >
+      **🧺 Сушилка**
+
+      Статус: {{ states('sensor.dryer_status') }} • Прогресс: {{ states('sensor.dryer_progress') }}
+
+  - type: markdown
+    content: >
+      **🫖 Чайник**
+
+      Статус: {{ states('switch.kettle') }} • Температура: {{ states('sensor.kettle_temperature') }} °C
+
+# -------------------------------------------------------------------
+# 3) CLIMATE CONTROL WIDGET (in style: large "Кондиционер")
+# -------------------------------------------------------------------
+---
+type: custom:stack-in-card
+mode: vertical
+cards:
+  - type: markdown
+    content: |
+      ## Кондиционер
+
+  # Replace climate.living_room_ac with your real climate entity.
+  - type: thermostat
+    entity: climate.living_room_ac
+    features:
+      - type: climate-hvac-modes
+        hvac_modes:
+          - "off"
+          - cool
+          - heat
+          - auto
+      - type: climate-fan-modes
+      - type: climate-preset-modes
+
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: tile
+        entity: select.umnyi_klimat
+        name: Режим Smart Climate
+      - type: tile
+        entity: select.umnyi_klimat_2
+        name: Профиль управления

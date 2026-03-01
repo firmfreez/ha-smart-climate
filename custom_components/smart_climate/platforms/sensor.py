@@ -19,7 +19,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: SmartClimateCoordinator = hass.data[DOMAIN][entry.entry_id]
-    entities: list[SensorEntity] = [OutdoorTempSensor(coordinator)]
+    entities: list[SensorEntity] = [OutdoorTempSensor(coordinator), HomeAverageTempSensor(coordinator)]
 
     for room_id in coordinator.room_ids:
         entities.append(RoomCurrentTempSensor(coordinator, room_id))
@@ -324,6 +324,42 @@ class OutdoorTempSensor(SmartClimateEntity, SensorEntity):
             return None
         value = self.coordinator.data.get("outdoor_temp")
         return float(value) if value is not None else None
+
+
+class HomeAverageTempSensor(SmartClimateEntity, SensorEntity):
+    """Average current temperature across all rooms."""
+
+    _attr_name = "Home Average Temp"
+    _attr_icon = "mdi:home-analytics"
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: SmartClimateCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_home_average_temp"
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        rooms = self.coordinator.data.get("rooms", {})
+        if not isinstance(rooms, dict):
+            return None
+        values: list[float] = []
+        for room in rooms.values():
+            if not isinstance(room, dict):
+                continue
+            current = room.get("current_temp")
+            if current is None:
+                continue
+            try:
+                values.append(float(current))
+            except (TypeError, ValueError):
+                continue
+        if not values:
+            return None
+        return round(sum(values) / len(values), 2)
 
 
 class RoomDecisionSensor(SmartClimateEntity, SensorEntity):

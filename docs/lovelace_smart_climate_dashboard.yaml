@@ -1,0 +1,185 @@
+title: Smart Climate
+views:
+  - title: Климат
+    path: smart-climate
+    icon: mdi:home-thermometer
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: |
+              ## Умный климат
+              Быстрое управление и диагностика по комнатам.
+
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              - type: tile
+                entity: select.umnyi_klimat
+                name: Режим
+              - type: tile
+                entity: select.umnyi_klimat_2
+                name: Профиль
+              - type: tile
+                entity: sensor.umnyi_klimat_outdoor_temp
+                name: Улица
+
+          - type: conditional
+            conditions:
+              - entity: select.umnyi_klimat
+                state: "off"
+            card:
+              type: vertical-stack
+              cards:
+                - type: markdown
+                  content: |
+                    ### Режим OFF
+                    Показываем только температуры по комнатам и среднюю по дому.
+                - type: entities
+                  show_header_toggle: false
+                  entities:
+                    - entity: sensor.umnyi_klimat_home_average_temp
+                      name: Средняя по дому
+                    - type: section
+                      label: Комнаты
+                    - entity: sensor.umnyi_klimat_vannaia_current_temp
+                      name: Ванная
+                    - entity: sensor.umnyi_klimat_zal_current_temp
+                      name: Зал
+                    - entity: sensor.umnyi_klimat_koridor_current_temp
+                      name: Коридор
+                    - entity: sensor.umnyi_klimat_kukhnia_current_temp
+                      name: Кухня
+                    - entity: sensor.umnyi_klimat_spalnia_current_temp
+                      name: Спальня
+
+          - type: conditional
+            conditions:
+              - entity: select.umnyi_klimat
+                state: "per_room"
+            card:
+              type: vertical-stack
+              cards:
+                - type: markdown
+                  content: |
+                    ### Режим Per-Room
+                    Управление включением и целями по каждой комнате.
+                - type: entities
+                  show_header_toggle: false
+                  entities:
+                    - type: section
+                      label: Ванная
+                    - entity: switch.umnyi_klimat_vannaia_enabled
+                      name: Включена
+                    - entity: number.umnyi_klimat_vannaia_target
+                      name: Целевая температура
+                    - entity: sensor.umnyi_klimat_vannaia_current_temp
+                      name: Текущая
+                    - entity: sensor.umnyi_klimat_vannaia_phase
+                      name: Фаза
+                    - entity: sensor.umnyi_klimat_demand_2
+                      name: Запрос
+                    - entity: sensor.umnyi_klimat_demand_delta_2
+                      name: Сила запроса
+                    - type: section
+                      label: Зал
+                    - entity: switch.umnyi_klimat_zal_enabled
+                      name: Включен
+                    - entity: number.umnyi_klimat_zal_target
+                      name: Целевая температура
+                    - entity: sensor.umnyi_klimat_zal_current_temp
+                      name: Текущая
+                    - entity: sensor.umnyi_klimat_zal_phase
+                      name: Фаза
+                    - entity: sensor.umnyi_klimat_demand
+                      name: Запрос
+                    - entity: sensor.umnyi_klimat_demand_delta
+                      name: Сила запроса
+                    - type: section
+                      label: Коридор
+                    - entity: switch.umnyi_klimat_koridor_enabled
+                      name: Включен
+                    - entity: number.umnyi_klimat_koridor_target
+                      name: Целевая температура
+                    - entity: sensor.umnyi_klimat_koridor_current_temp
+                      name: Текущая
+                    - entity: sensor.umnyi_klimat_koridor_phase
+                      name: Фаза
+                    - entity: sensor.umnyi_klimat_demand_3
+                      name: Запрос
+                    - entity: sensor.umnyi_klimat_demand_delta_3
+                      name: Сила запроса
+                    - type: section
+                      label: Кухня
+                    - entity: switch.umnyi_klimat_kukhnia_enabled
+                      name: Включена
+                    - entity: number.umnyi_klimat_kukhnia_target
+                      name: Целевая температура
+                    - entity: sensor.umnyi_klimat_kukhnia_current_temp
+                      name: Текущая
+                    - entity: sensor.umnyi_klimat_kukhnia_phase
+                      name: Фаза
+                    - entity: sensor.umnyi_klimat_demand_4
+                      name: Запрос
+                    - entity: sensor.umnyi_klimat_demand_delta_4
+                      name: Сила запроса
+                    - type: section
+                      label: Спальня
+                    - entity: switch.umnyi_klimat_spalnia_enabled
+                      name: Включена
+                    - entity: number.umnyi_klimat_spalnia_target
+                      name: Целевая температура
+                    - entity: sensor.umnyi_klimat_spalnia_current_temp
+                      name: Текущая
+                    - entity: sensor.umnyi_klimat_spalnia_phase
+                      name: Фаза
+                    - entity: sensor.umnyi_klimat_demand_5
+                      name: Запрос
+                    - entity: sensor.umnyi_klimat_demand_delta_5
+                      name: Сила запроса
+
+          - type: conditional
+            conditions:
+              - entity: select.umnyi_klimat
+                state: "global"
+            card:
+              type: vertical-stack
+              cards:
+                - type: markdown
+                  content: |
+                    ### Режим Global
+                    Общая цель + быстрое включение/выключение комнат.
+                - type: entities
+                  show_header_toggle: false
+                  entities:
+                    - entity: number.umnyi_klimat_global_target
+                      name: Общая целевая температура
+                    - entity: number.umnyi_klimat_global_tolerance
+                      name: Общая толерантность
+                    - type: section
+                      label: Комнаты
+                    - entity: switch.umnyi_klimat_vannaia_enabled
+                      name: Ванная
+                    - entity: switch.umnyi_klimat_zal_enabled
+                      name: Зал
+                    - entity: switch.umnyi_klimat_koridor_enabled
+                      name: Коридор
+                    - entity: switch.umnyi_klimat_kukhnia_enabled
+                      name: Кухня
+                    - entity: switch.umnyi_klimat_spalnia_enabled
+                      name: Спальня
+
+          - type: entities
+            title: Диагностика
+            show_header_toggle: false
+            entities:
+              - entity: sensor.umnyi_klimat_home_average_temp
+                name: Средняя температура дома
+              - entity: sensor.umnyi_klimat_outdoor_temp
+                name: Наружная температура
+              - type: section
+                label: Shared арбитраж
+              # Примеры shared winner-сенсоров. Подставьте свои entity_id shared climate.
+              - entity: sensor.umnyi_klimat_climate_teplyi_pol_shared_winner_room
+                name: Теплый пол winner

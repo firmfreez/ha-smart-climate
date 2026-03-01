@@ -1,6 +1,6 @@
 [project]
 name = "smart-climate-ha"
-version = "0.1.24"
+version = "0.1.25"
 description = "Home Assistant custom integration smart_climate"
 requires-python = ">=3.12"
 

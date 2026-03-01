@@ -28,6 +28,7 @@
 - `sensor.smart_climate_<room>_current_temp`
 - `sensor.smart_climate_<room>_phase`
 - `sensor.smart_climate_outdoor_temp`
+- `sensor.smart_climate_home_average_temp`
 
 ## Категории устройств
 
@@ -109,3 +110,20 @@ pip install -e .[dev]
 ruff check .
 pytest
 ```
+
+## Lovelace UI (готовый дашборд)
+
+В репозитории есть готовый шаблон:
+
+- `docs/lovelace_smart_climate_dashboard.yaml`
+- `docs/lovelace_modern_widgets.yaml` (отдельные карточки в современном стиле)
+
+Что делает:
+- отдельные блоки для `off`, `per_room`, `global`;
+- быстрый выбор `mode/type`;
+- контроль комнат (`enabled`, target);
+- диагностический блок по сенсорам и shared arbitration.
+
+Важно:
+- подставьте свои `entity_id` комнат (например `vannaya`, `kukhnya` и т.д.);
+- в секции shared winner замените примерные `sensor.climate_*_shared_winner_room` на реальные.
