@@ -389,6 +389,155 @@ def test_shared_priority_room_heat_only_does_not_drop_to_target_when_no_demand()
     assert winners == {climate_id: room_id}
 
 
+def test_shared_priority_room_heat_only_applies_plus_n_during_heating() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    room_id = "kitchen"
+    climate_id = "climate.floor_shared"
+    calls: list[dict[str, object]] = []
+
+    coordinator._shared_map = {climate_id: [room_id]}  # type: ignore[attr-defined]
+    coordinator._rooms = {  # type: ignore[attr-defined]
+        room_id: RoomConfig(
+            room_id=room_id,
+            name="Kitchen",
+            temp_sensors=["sensor.room"],
+            shared_climates=[climate_id],
+            heat_only_climates=[climate_id],
+        )
+    }
+    coordinator._runtime = {  # type: ignore[attr-defined]
+        room_id: RoomRuntime(
+            enabled=True,
+            current_temp=23.5,
+            target_temp=25.0,
+            tolerance=0.3,
+            current_offset=2.0,
+        )
+    }
+    coordinator._room_enabled = MethodType(lambda self, rid: rid == room_id, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_target = MethodType(lambda self, rid: 25.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_tolerance = MethodType(lambda self, rid: 0.3, coordinator)  # type: ignore[attr-defined]
+    coordinator._read_outdoor_temp = MethodType(lambda self: 0.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._opt = MethodType(  # type: ignore[attr-defined]
+        lambda self, key: {
+            "shared_arbitration": "priority_room",
+            "priority_room": room_id,
+            "type": "normal",
+            CONF_HEAT_ONLY_SHARED_HOLD_EXTRA: 7.0,
+            CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW: 10.0,
+            CONF_HOLD_OFFSET_DECAY_STEP: 0.5,
+        }.get(key),
+        coordinator,
+    )
+
+    async def _fake_set_climate(
+        self,
+        entity_id: str,
+        target: float,
+        is_heating: bool,
+        control_type: str,
+        offset: float,
+        skip_hvac: bool = False,
+        force_heat_mode: bool = False,
+    ) -> dict[str, object]:
+        calls.append(
+            {
+                "entity_id": entity_id,
+                "target": target,
+                "is_heating": is_heating,
+                "offset": offset,
+                "skip_hvac": skip_hvac,
+            }
+        )
+        return {"sent": True, "active": True}
+
+    coordinator._async_set_climate = MethodType(_fake_set_climate, coordinator)  # type: ignore[attr-defined]
+
+    winners = asyncio.run(coordinator._async_apply_shared({climate_id: [(room_id, "heat", 1.5)]}))
+
+    assert calls
+    call = calls[0]
+    assert call["entity_id"] == climate_id
+    assert call["is_heating"] is True
+    assert call["offset"] == 7.0
+    assert call["skip_hvac"] is False
+    assert winners == {climate_id: room_id}
+
+
+def test_shared_priority_room_heat_only_during_cooling_softly_reduces_extra() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    room_id = "kitchen"
+    climate_id = "climate.floor_shared"
+    calls: list[dict[str, object]] = []
+
+    coordinator._shared_map = {climate_id: [room_id]}  # type: ignore[attr-defined]
+    coordinator._rooms = {  # type: ignore[attr-defined]
+        room_id: RoomConfig(
+            room_id=room_id,
+            name="Kitchen",
+            temp_sensors=["sensor.room"],
+            shared_climates=[climate_id],
+            heat_only_climates=[climate_id],
+        )
+    }
+    coordinator._runtime = {  # type: ignore[attr-defined]
+        room_id: RoomRuntime(
+            enabled=True,
+            current_temp=25.8,
+            target_temp=25.0,
+            tolerance=0.3,
+            current_offset=2.0,
+        )
+    }
+    coordinator.hass = SimpleNamespace(  # type: ignore[attr-defined]
+        states=SimpleNamespace(
+            get=lambda entity_id: SimpleNamespace(attributes={"temperature": 32.0})
+            if entity_id == climate_id
+            else None
+        )
+    )
+    coordinator._room_enabled = MethodType(lambda self, rid: rid == room_id, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_target = MethodType(lambda self, rid: 25.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_tolerance = MethodType(lambda self, rid: 0.3, coordinator)  # type: ignore[attr-defined]
+    coordinator._read_outdoor_temp = MethodType(lambda self: 0.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._opt = MethodType(  # type: ignore[attr-defined]
+        lambda self, key: {
+            "shared_arbitration": "priority_room",
+            "priority_room": room_id,
+            "type": "normal",
+            CONF_HEAT_ONLY_SHARED_HOLD_EXTRA: 7.0,
+            CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW: 10.0,
+            CONF_HOLD_OFFSET_DECAY_STEP: 0.5,
+        }.get(key),
+        coordinator,
+    )
+
+    async def _fake_set_climate(
+        self,
+        entity_id: str,
+        target: float,
+        is_heating: bool,
+        control_type: str,
+        offset: float,
+        skip_hvac: bool = False,
+        force_heat_mode: bool = False,
+    ) -> dict[str, object]:
+        calls.append({"entity_id": entity_id, "offset": offset, "is_heating": is_heating, "skip_hvac": skip_hvac})
+        return {"sent": True, "active": True}
+
+    coordinator._async_set_climate = MethodType(_fake_set_climate, coordinator)  # type: ignore[attr-defined]
+
+    winners = asyncio.run(coordinator._async_apply_shared({climate_id: [(room_id, "cool", 0.8)]}))
+
+    assert calls
+    call = calls[0]
+    assert call["entity_id"] == climate_id
+    assert call["is_heating"] is False
+    assert call["offset"] == 6.5
+    assert call["skip_hvac"] is False
+    assert winners == {climate_id: room_id}
+
+
 def test_shared_priority_room_heat_only_above_target_softly_reduces_floor_setpoint() -> None:
     coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
     room_id = "kitchen"

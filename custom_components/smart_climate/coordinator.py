@@ -546,7 +546,10 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 and runtime.current_offset > 0
                 and runtime.hold_is_heating is not None
             ):
-                decay_step = float(self._opt(CONF_HOLD_OFFSET_DECAY_STEP))
+                decay_step = float(
+                    self._opt(CONF_HOLD_OFFSET_DECAY_STEP)
+                    or OPTIONS_DEFAULTS[CONF_HOLD_OFFSET_DECAY_STEP]
+                )
                 if runtime.hold_is_heating and cool_needed:
                     runtime.current_offset = max(0.0, runtime.current_offset - decay_step)
                     cool_needed = False
@@ -966,47 +969,63 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 tolerance = self._room_tolerance(priority_room)
                 diff_heat = target - priority_runtime.current_temp
                 diff_cool = priority_runtime.current_temp - target
+                heat_only_shared = self._is_heat_only_shared_climate(climate_entity, involved_rooms)
+                hold_extra = float(self._opt(CONF_HEAT_ONLY_SHARED_HOLD_EXTRA))
+                outdoor_below = float(self._opt(CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW))
+                decay_step = float(
+                    self._opt(CONF_HOLD_OFFSET_DECAY_STEP)
+                    or OPTIONS_DEFAULTS[CONF_HOLD_OFFSET_DECAY_STEP]
+                )
+                apply_heat_only_extra = (
+                    heat_only_shared
+                    and outdoor_temp is not None
+                    and outdoor_temp < outdoor_below
+                )
+
+                current_extra = hold_extra
+                if heat_only_shared:
+                    hass_obj = getattr(self, "hass", None)
+                    if hass_obj is not None:
+                        state = hass_obj.states.get(climate_entity)
+                        if state is not None:
+                            current_setpoint = state.attributes.get("temperature")
+                            try:
+                                current_extra = max(float(current_setpoint) - target, 0.0)
+                            except (TypeError, ValueError):
+                                current_extra = hold_extra
 
                 if diff_heat > tolerance:
                     is_heating = True
                     offset = priority_runtime.current_offset
                     control_type = self._opt(CONF_TYPE)
+                    if apply_heat_only_extra:
+                        offset = max(offset, hold_extra)
                 elif diff_cool > tolerance:
                     is_heating = False
                     offset = priority_runtime.current_offset
                     control_type = self._opt(CONF_TYPE)
+                    # If a heat-only floor had elevated hold setpoint, lower it smoothly
+                    # during cooling demand so it does not fight room cooldown.
+                    if apply_heat_only_extra:
+                        offset = max(0.0, current_extra - decay_step)
                 else:
                     is_heating = True
                     control_type = "normal"
                     offset = 0.0
-                    if self._is_heat_only_shared_climate(climate_entity, involved_rooms):
-                        outdoor_below = float(self._opt(CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW))
-                        if outdoor_temp is not None and outdoor_temp < outdoor_below:
-                            hold_extra = float(self._opt(CONF_HEAT_ONLY_SHARED_HOLD_EXTRA))
-                            any_shared_room_overheated = any(
-                                (
-                                    self._runtime[room_id].current_temp is not None
-                                    and (self._runtime[room_id].current_temp - self._room_target(room_id))
-                                    > self._room_tolerance(room_id)
-                                )
-                                for room_id in involved_rooms
-                                if room_id in self._runtime
+                    if apply_heat_only_extra:
+                        any_shared_room_overheated = any(
+                            (
+                                self._runtime[room_id].current_temp is not None
+                                and (self._runtime[room_id].current_temp - self._room_target(room_id))
+                                > self._room_tolerance(room_id)
                             )
-                            if priority_runtime.current_temp > target or any_shared_room_overheated:
-                                decay_step = float(self._opt(CONF_HOLD_OFFSET_DECAY_STEP))
-                                current_extra = hold_extra
-                                hass_obj = getattr(self, "hass", None)
-                                if hass_obj is not None:
-                                    state = hass_obj.states.get(climate_entity)
-                                    if state is not None:
-                                        current_setpoint = state.attributes.get("temperature")
-                                        try:
-                                            current_extra = max(float(current_setpoint) - target, 0.0)
-                                        except (TypeError, ValueError):
-                                            current_extra = hold_extra
-                                offset = max(0.0, current_extra - decay_step)
-                            else:
-                                offset = hold_extra
+                            for room_id in involved_rooms
+                            if room_id in self._runtime
+                        )
+                        if priority_runtime.current_temp > target or any_shared_room_overheated:
+                            offset = max(0.0, current_extra - decay_step)
+                        else:
+                            offset = hold_extra
 
                 await self._async_set_climate(
                     climate_entity,
@@ -1015,7 +1034,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     control_type=control_type,
                     offset=offset,
                     skip_hvac=diff_heat <= tolerance and diff_cool <= tolerance,
-                    force_heat_mode=self._is_heat_only_shared_climate(climate_entity, involved_rooms),
+                    force_heat_mode=heat_only_shared,
                 )
                 winner_rooms[climate_entity] = priority_room
                 continue
