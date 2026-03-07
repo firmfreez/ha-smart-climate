@@ -18,6 +18,7 @@ class DumbDeviceConfig:
     device_type: str
     participation: str
     category: int
+    manage_off_script: bool = True
 
 
 @dataclass
@@ -36,6 +37,7 @@ class RoomConfig:
     weather_sensitive_climates: list[str] = field(default_factory=list)
     dumb_devices: list[DumbDeviceConfig] = field(default_factory=list)
     shared_climates: list[str] = field(default_factory=list)
+    heat_only_climates: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -54,6 +56,7 @@ class RoomRuntime:
     active_category_heat: int = 0
     active_category_cool: int = 0
     active_devices: list[str] = field(default_factory=list)
+    hold_is_heating: bool | None = None
     action_log: list[dict[str, Any]] = field(default_factory=list)
     decision_summary: str | None = None
     boost_elapsed_seconds: int = 0

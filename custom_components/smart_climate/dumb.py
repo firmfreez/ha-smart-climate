@@ -39,6 +39,7 @@ def parse_dumb_devices_json(raw: str) -> list[dict[str, Any]]:
         device_type = item.get("device_type")
         participation = item.get("participation")
         category = item.get("category", DUMB_DEFAULT_CATEGORY)
+        manage_off_script_raw = item.get("manage_off_script", True)
         if not on_script or not off_script:
             raise ValueError("dumb device requires on_script and off_script")
         if not str(on_script).startswith("script.") or not str(off_script).startswith("script."):
@@ -49,6 +50,12 @@ def parse_dumb_devices_json(raw: str) -> list[dict[str, Any]]:
             raise ValueError("invalid dumb participation")
         if not isinstance(category, int) or category not in (1, 2, 3):
             raise ValueError("dumb category must be 1, 2 or 3")
+        if isinstance(manage_off_script_raw, bool):
+            manage_off_script = manage_off_script_raw
+        elif isinstance(manage_off_script_raw, str):
+            manage_off_script = manage_off_script_raw.strip().lower() in ("1", "true", "on", "yes")
+        else:
+            manage_off_script = bool(manage_off_script_raw)
         parsed.append(
             {
                 "on_script": str(on_script),
@@ -56,6 +63,7 @@ def parse_dumb_devices_json(raw: str) -> list[dict[str, Any]]:
                 "device_type": str(device_type),
                 "participation": str(participation),
                 "category": category,
+                "manage_off_script": manage_off_script,
             }
         )
     return parsed

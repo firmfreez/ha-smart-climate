@@ -62,10 +62,14 @@ def test_runtime_entity_changes_are_persisted_to_entry_options() -> None:
     assert "self._persist_option_map_value(CONF_PER_ROOM_TOLERANCES, room_id, value)" in source
 
 
-def test_after_reach_always_turns_devices_off() -> None:
+def test_hold_phase_keeps_room_climates_on_setpoint() -> None:
     source = COORDINATOR.read_text(encoding="utf-8")
-    assert 'await self._async_call_service_entity(climate_entity, "climate", "turn_off")' in source
-    assert 'await self._async_call_service_entity(dumb.off_script, "script", "turn_on")' in source
+    assert "target reached: holding setpoint" in source
+    assert "softened boost offset due opposite drift" in source
+    assert "runtime.hold_is_heating = True" in source
+    assert "runtime.hold_is_heating = False" in source
+    assert "category=1" in source
+    assert "runtime.active_devices = await self._async_apply_room_actions(" in source
     assert "smart_behavior =" not in source
     assert "dumb_behavior =" not in source
 

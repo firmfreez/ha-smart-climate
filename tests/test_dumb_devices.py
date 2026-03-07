@@ -95,3 +95,20 @@ def test_should_activate_dumb_device_by_category_and_type() -> None:
         device_type="heat",
         participation="off",
     )
+
+
+def test_parse_dumb_devices_manage_off_script_flag() -> None:
+    payload = """
+    [
+      {
+        "on_script": "script.fireplace_on",
+        "off_script": "script.fireplace_off",
+        "device_type": "heat",
+        "participation": "always_on",
+        "category": 1,
+        "manage_off_script": false
+      }
+    ]
+    """
+    parsed = parse_dumb_devices_json(payload)
+    assert parsed[0]["manage_off_script"] is False

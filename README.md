@@ -44,6 +44,7 @@
 Также задаются:
 - `weather_sensitive_climates` — климатические устройства, которые ограничиваются наружной температурой;
 - `shared_climates` — устройства, обслуживающие несколько комнат (участвуют через арбитраж shared demand).
+- `heat_only_climates` — климатические устройства, которые никогда не переводятся в `cool` (например, теплый пол).
 
 ## Настройка (подробно)
 
@@ -57,11 +58,13 @@
    - `cool_category_1/2/3`,
    - `weather_sensitive_climates`,
    - `shared_climates`,
+   - `heat_only_climates`,
    - `dumb_devices_json`.
 3. В Options Flow настрой:
    - режим (`off/per_room/global`) и тип (`normal/fast/extreme`),
    - global/per-room target и tolerance,
    - пороги включения категорий 2 и 3 для heat/cool,
+   - `hold_offset_decay_step` (скорость снятия накрута в HOLD),
    - safe outdoor ranges,
    - after_reach поведение,
    - shared arbitration.
@@ -79,7 +82,8 @@
     "off_script": "script.room1_heater_off",
     "device_type": "heat",
     "participation": "until_reach_target",
-    "category": 2
+    "category": 2,
+    "manage_off_script": true
   }
 ]
 ```
@@ -90,6 +94,9 @@
 - `device_type` — `heat` или `cool`
 - `participation` — `off` | `always_on` | `until_reach_target`
 - `category` — `1` | `2` | `3` (с какой категории устройство начинает участвовать)
+- `manage_off_script` — `true`/`false`, вызывать ли `off_script` при деактивации (для камина с подсветкой ставьте `false`)
+
+`off_script` вызывается только для тех dumb-устройств, которые ранее были включены самой интеграцией Smart Climate.
 
 ## Релиз под HACS
 

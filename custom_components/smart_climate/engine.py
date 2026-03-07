@@ -77,7 +77,8 @@ def next_phase_and_offset(
 ) -> tuple[str, float]:
     """Compute next phase and offset for NORMAL/FAST/EXTREME."""
     if reached_target:
-        return PHASE_HOLD, 0.0
+        # Keep current offset in HOLD; coordinator can soften it gradually on overshoot.
+        return PHASE_HOLD, current_offset
 
     if phase in (PHASE_IDLE, PHASE_HOLD):
         if control_type == TYPE_NORMAL:

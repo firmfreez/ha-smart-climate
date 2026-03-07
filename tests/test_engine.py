@@ -83,7 +83,7 @@ def test_normal_profile_boost_step_and_hold_transition() -> None:
         t_time=300,
     )
     assert phase == PHASE_HOLD
-    assert offset == 0.0
+    assert offset == 1.0
 
 
 def test_fast_profile_sets_max_offset_immediately() -> None:

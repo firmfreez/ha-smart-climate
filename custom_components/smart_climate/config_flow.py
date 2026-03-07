@@ -33,6 +33,7 @@ from .const import (
     CONF_COOL_SMALL,
     CONF_GLOBAL_TARGET,
     CONF_GLOBAL_TOLERANCE,
+    CONF_HOLD_OFFSET_DECAY_STEP,
     CONF_HEAT_BIG,
     CONF_HEAT_CATEGORY2_DIFF,
     CONF_HEAT_CATEGORY3_DIFF,
@@ -58,6 +59,7 @@ from .const import (
     CONF_ROOM_HEAT_CATEGORY_1,
     CONF_ROOM_HEAT_CATEGORY_2,
     CONF_ROOM_HEAT_CATEGORY_3,
+    CONF_ROOM_HEAT_ONLY_CLIMATES,
     CONF_ROOM_ID,
     CONF_ROOM_NAME,
     CONF_ROOM_SHARED_CLIMATES,
@@ -82,6 +84,7 @@ from .const import (
     DEFAULT_COOL_SMALL,
     DEFAULT_GLOBAL_TARGET,
     DEFAULT_GLOBAL_TOLERANCE,
+    DEFAULT_HOLD_OFFSET_DECAY_STEP,
     DEFAULT_HEAT_BIG,
     DEFAULT_HEAT_CATEGORY2_DIFF,
     DEFAULT_HEAT_CATEGORY3_DIFF,
@@ -201,6 +204,7 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_ROOM_WEATHER_SENSITIVE_CLIMATES, []
                     ),
                     CONF_ROOM_SHARED_CLIMATES: user_input.get(CONF_ROOM_SHARED_CLIMATES, []),
+                    CONF_ROOM_HEAT_ONLY_CLIMATES: user_input.get(CONF_ROOM_HEAT_ONLY_CLIMATES, []),
                     CONF_ROOM_DUMB_DEVICES: dumb_devices,
                 }
                 if any(existing[CONF_ROOM_ID] == room_id for existing in self._rooms):
@@ -252,6 +256,9 @@ class SmartClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_ROOM_SHARED_CLIMATES, default=[]): EntitySelector(
                     EntitySelectorConfig(domain="climate", multiple=True)
                 ),
+                vol.Optional(CONF_ROOM_HEAT_ONLY_CLIMATES, default=[]): EntitySelector(
+                    EntitySelectorConfig(domain="climate", multiple=True)
+                ),
                 vol.Optional("dumb_devices_json", default=""): TextSelector(TextSelectorConfig(multiline=True)),
                 vol.Required("add_another_room", default=False): bool,
             }
@@ -292,6 +299,7 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                     CONF_UPDATE_INTERVAL: int(user_input[CONF_UPDATE_INTERVAL]),
                     CONF_MAX_OFFSET: user_input[CONF_MAX_OFFSET],
                     CONF_STEP_OFFSET: user_input[CONF_STEP_OFFSET],
+                    CONF_HOLD_OFFSET_DECAY_STEP: user_input[CONF_HOLD_OFFSET_DECAY_STEP],
                     CONF_MIN_ACTION_INTERVAL: int(user_input[CONF_MIN_ACTION_INTERVAL]),
                     CONF_HEAT_SMALL: user_input[CONF_HEAT_SMALL],
                     CONF_HEAT_MEDIUM: user_input[CONF_HEAT_MEDIUM],
@@ -334,6 +342,10 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_STEP_OFFSET, default=options.get(CONF_STEP_OFFSET, DEFAULT_STEP_OFFSET)): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=5, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
+                vol.Required(
+                    CONF_HOLD_OFFSET_DECAY_STEP,
+                    default=options.get(CONF_HOLD_OFFSET_DECAY_STEP, DEFAULT_HOLD_OFFSET_DECAY_STEP),
+                ): NumberSelector(NumberSelectorConfig(min=0.1, max=5, step=0.1, mode=NumberSelectorMode.BOX)),
                 vol.Required(
                     CONF_MIN_ACTION_INTERVAL,
                     default=options.get(CONF_MIN_ACTION_INTERVAL, DEFAULT_MIN_ACTION_INTERVAL),
@@ -587,6 +599,7 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
             CONF_ROOM_COOL_CATEGORY_3: user_input.get(CONF_ROOM_COOL_CATEGORY_3, []),
             CONF_ROOM_WEATHER_SENSITIVE_CLIMATES: user_input.get(CONF_ROOM_WEATHER_SENSITIVE_CLIMATES, []),
             CONF_ROOM_SHARED_CLIMATES: user_input.get(CONF_ROOM_SHARED_CLIMATES, []),
+            CONF_ROOM_HEAT_ONLY_CLIMATES: user_input.get(CONF_ROOM_HEAT_ONLY_CLIMATES, []),
             CONF_ROOM_DUMB_DEVICES: dumb_devices,
         }
 
@@ -625,6 +638,10 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_ROOM_SHARED_CLIMATES, default=room.get(CONF_ROOM_SHARED_CLIMATES, [])): EntitySelector(
                     EntitySelectorConfig(domain="climate", multiple=True)
                 ),
+                vol.Optional(
+                    CONF_ROOM_HEAT_ONLY_CLIMATES,
+                    default=room.get(CONF_ROOM_HEAT_ONLY_CLIMATES, []),
+                ): EntitySelector(EntitySelectorConfig(domain="climate", multiple=True)),
                 vol.Optional(
                     "dumb_devices_json",
                     default=json.dumps(room.get(CONF_ROOM_DUMB_DEVICES, []), ensure_ascii=False),

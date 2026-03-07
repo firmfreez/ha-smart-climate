@@ -27,7 +27,8 @@
           "cool_category_3": "Устройства охлаждения категории 3",
           "weather_sensitive_climates": "Погодочувствительные climate устройства",
           "shared_climates": "Shared climate устройства",
-          "dumb_devices_json": "JSON dumb-устройств (on_script/off_script/type/participation)",
+          "heat_only_climates": "Только нагрев (никогда не переключать в cool)",
+          "dumb_devices_json": "JSON dumb-устройств (on/off/type/participation/category/manage_off_script)",
           "add_another_room": "Добавить еще комнату"
         }
       }
@@ -65,6 +66,7 @@
           "update_interval": "Интервал обновления (сек)",
           "max_offset": "Максимальная накрутка",
           "step_offset": "Шаг накрутки",
+          "hold_offset_decay_step": "Шаг снятия накрута в удержании",
           "min_action_interval": "Мин. интервал между действиями на устройство (сек)",
           "heat_small": "Порог small для нагрева",
           "heat_medium": "Порог medium для нагрева",
@@ -98,6 +100,7 @@
           "update_interval": "Как часто пересчитывается логика управления.",
           "max_offset": "Максимальная коррекция setpoint во время разгона.",
           "step_offset": "На сколько увеличивается коррекция за один цикл в фазе разгона.",
+          "hold_offset_decay_step": "На сколько уменьшается накрутка за цикл в HOLD при уходе температуры в обратную сторону.",
           "min_action_interval": "Минимальная пауза между сервисными вызовами для одного устройства.",
           "heat_small": "Legacy-порог для небольшого запроса на нагрев.",
           "heat_medium": "Legacy-порог для среднего запроса на нагрев.",
@@ -136,7 +139,8 @@
           "cool_category_3": "Устройства охлаждения категории 3",
           "weather_sensitive_climates": "Погодочувствительные climate устройства",
           "shared_climates": "Shared climate устройства",
-          "dumb_devices_json": "JSON dumb-устройств"
+          "heat_only_climates": "Только нагрев (никогда не переключать в cool)",
+          "dumb_devices_json": "JSON dumb-устройств (опционально manage_off_script)"
         }
       },
       "edit_room_select": {
@@ -160,7 +164,8 @@
           "cool_category_3": "Устройства охлаждения категории 3",
           "weather_sensitive_climates": "Погодочувствительные climate устройства",
           "shared_climates": "Shared climate устройства",
-          "dumb_devices_json": "JSON dumb-устройств"
+          "heat_only_climates": "Только нагрев (никогда не переключать в cool)",
+          "dumb_devices_json": "JSON dumb-устройств (опционально manage_off_script)"
         }
       },
       "delete_room_select": {
