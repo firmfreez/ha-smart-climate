@@ -63,11 +63,18 @@ if "homeassistant" not in sys.modules:
     util_dt.utcnow = _dt.datetime.utcnow
     sys.modules["homeassistant.util.dt"] = util_dt
 
+import custom_components.smart_climate.coordinator as coordinator_module
 from custom_components.smart_climate.const import (
     CONF_AC_MISSING_OUTDOOR_POLICY,
+    CONF_COOL_CATEGORY2_DIFF,
+    CONF_COOL_CATEGORY3_DIFF,
     CONF_COOL_OUTDOOR_TARGET_DELTA,
+    CONF_DELTA,
+    CONF_DIRECTION_SWITCH_HYSTERESIS,
     CONF_GLOBAL_TARGET,
     CONF_GLOBAL_TOLERANCE,
+    CONF_HEAT_CATEGORY2_DIFF,
+    CONF_HEAT_CATEGORY3_DIFF,
     CONF_HEAT_OUTDOOR_TARGET_DELTA,
     CONF_HOLD_OFFSET_DECAY_STEP,
     CONF_MAX_OFFSET,
@@ -543,6 +550,10 @@ def test_hold_phase_keeps_climate_active_on_target() -> None:
         CONF_MAX_OFFSET: 2.0,
         CONF_T_TIME: 300,
         CONF_PRIORITY_ROOM: "",
+        CONF_HEAT_CATEGORY2_DIFF: 0.7,
+        CONF_HEAT_CATEGORY3_DIFF: 1.8,
+        CONF_COOL_CATEGORY2_DIFF: 0.7,
+        CONF_COOL_CATEGORY3_DIFF: 1.8,
     }
     coordinator._opt = MethodType(lambda self, key: opts.get(key), coordinator)  # type: ignore[attr-defined]
     coordinator._room_enabled = MethodType(lambda self, rid: True, coordinator)  # type: ignore[attr-defined]
@@ -584,3 +595,97 @@ def test_hold_phase_keeps_climate_active_on_target() -> None:
     assert calls[0]["category"] == 1
     assert calls[0]["offset"] == 1.5
     assert result["rooms"][room_id]["active_devices"] == ["climate.radiator"]
+
+
+def test_direction_switch_hysteresis_delays_and_allows_heat_to_cool_switch() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    room_id = "living"
+    room = RoomConfig(
+        room_id=room_id,
+        name="Living",
+        temp_sensors=["sensor.living"],
+        heat_category_1=["climate.radiator"],
+        cool_category_1=["climate.ac"],
+    )
+    coordinator._rooms = {room_id: room}  # type: ignore[attr-defined]
+    coordinator._shared_map = {}  # type: ignore[attr-defined]
+    coordinator._managed_dumb_on_scripts = set()  # type: ignore[attr-defined]
+    opts = {
+        CONF_MODE: MODE_PER_ROOM,
+        CONF_TYPE: TYPE_NORMAL,
+        CONF_GLOBAL_TARGET: 22.0,
+        CONF_GLOBAL_TOLERANCE: 0.3,
+        CONF_DIRECTION_SWITCH_HYSTERESIS: 0.5,
+        CONF_DELTA: 0.5,
+        CONF_HOLD_OFFSET_DECAY_STEP: 0.5,
+        CONF_STEP_OFFSET: 0.5,
+        CONF_MAX_OFFSET: 2.0,
+        CONF_T_TIME: 300,
+        CONF_PRIORITY_ROOM: "",
+        CONF_HEAT_CATEGORY2_DIFF: 0.7,
+        CONF_HEAT_CATEGORY3_DIFF: 1.8,
+        CONF_COOL_CATEGORY2_DIFF: 0.7,
+        CONF_COOL_CATEGORY3_DIFF: 1.8,
+    }
+    coordinator._opt = MethodType(lambda self, key: opts.get(key), coordinator)  # type: ignore[attr-defined]
+    coordinator._room_enabled = MethodType(lambda self, rid: True, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_target = MethodType(lambda self, rid: 22.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_tolerance = MethodType(lambda self, rid: 0.3, coordinator)  # type: ignore[attr-defined]
+    coordinator._read_outdoor_temp = MethodType(lambda self: None, coordinator)  # type: ignore[attr-defined]
+    coordinator._weather_sensitive_allowed = MethodType(lambda self, **kwargs: True, coordinator)  # type: ignore[attr-defined]
+    calls: list[dict[str, object]] = []
+
+    async def _fake_apply_room_actions(
+        self,
+        room: RoomConfig,
+        runtime: RoomRuntime,
+        is_heating: bool,
+        category: int,
+        control_type: str,
+        weather_sensitive_allowed: bool,
+    ) -> list[str]:
+        calls.append({"is_heating": is_heating, "category": category})
+        return ["climate.radiator" if is_heating else "climate.ac"]
+
+    async def _fake_apply_shared(self, demands):
+        return {}
+
+    coordinator._async_apply_room_actions = MethodType(_fake_apply_room_actions, coordinator)  # type: ignore[attr-defined]
+    coordinator._async_apply_shared = MethodType(_fake_apply_shared, coordinator)  # type: ignore[attr-defined]
+
+    original_next_phase_and_offset = coordinator_module.next_phase_and_offset
+    coordinator_module.next_phase_and_offset = lambda **kwargs: (kwargs["phase"], kwargs["current_offset"])
+    try:
+        # 22.6C with target 22.0, tol 0.3 and hysteresis 0.5 => no cool switch yet.
+        coordinator._runtime = {  # type: ignore[attr-defined]
+            room_id: RoomRuntime(
+                enabled=True,
+                current_temp=22.6,
+                target_temp=22.0,
+                tolerance=0.3,
+                phase=PHASE_HOLD,
+                current_offset=0.0,
+                hold_is_heating=True,
+            )
+        }
+        coordinator._read_room_temperature = MethodType(lambda self, r: 22.6, coordinator)  # type: ignore[attr-defined]
+        asyncio.run(coordinator._async_run_control_cycle())
+        assert calls and calls[-1]["is_heating"] is True
+
+        # 23.0C exceeds tol+hysteresis (0.8) => switch to cooling is allowed.
+        coordinator._runtime = {  # type: ignore[attr-defined]
+            room_id: RoomRuntime(
+                enabled=True,
+                current_temp=23.0,
+                target_temp=22.0,
+                tolerance=0.3,
+                phase=PHASE_HOLD,
+                current_offset=0.0,
+                hold_is_heating=True,
+            )
+        }
+        coordinator._read_room_temperature = MethodType(lambda self, r: 23.0, coordinator)  # type: ignore[attr-defined]
+        asyncio.run(coordinator._async_run_control_cycle())
+        assert calls and calls[-1]["is_heating"] is False
+    finally:
+        coordinator_module.next_phase_and_offset = original_next_phase_and_offset

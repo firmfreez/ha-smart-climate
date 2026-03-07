@@ -31,6 +31,7 @@ from .const import (
     CONF_COOL_MEDIUM,
     CONF_COOL_OUTDOOR_TARGET_DELTA,
     CONF_COOL_SMALL,
+    CONF_DIRECTION_SWITCH_HYSTERESIS,
     CONF_GLOBAL_TARGET,
     CONF_GLOBAL_TOLERANCE,
     CONF_HEAT_BIG,
@@ -82,6 +83,7 @@ from .const import (
     DEFAULT_COOL_MEDIUM,
     DEFAULT_COOL_OUTDOOR_TARGET_DELTA,
     DEFAULT_COOL_SMALL,
+    DEFAULT_DIRECTION_SWITCH_HYSTERESIS,
     DEFAULT_GLOBAL_TARGET,
     DEFAULT_GLOBAL_TOLERANCE,
     DEFAULT_HEAT_BIG,
@@ -295,6 +297,7 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
             options.update(
                 {
                     CONF_TOLERANCE: user_input[CONF_TOLERANCE],
+                    CONF_DIRECTION_SWITCH_HYSTERESIS: user_input[CONF_DIRECTION_SWITCH_HYSTERESIS],
                     CONF_T_TIME: int(user_input[CONF_T_TIME]),
                     CONF_UPDATE_INTERVAL: int(user_input[CONF_UPDATE_INTERVAL]),
                     CONF_MAX_OFFSET: user_input[CONF_MAX_OFFSET],
@@ -330,6 +333,13 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_TOLERANCE, default=options.get(CONF_TOLERANCE, DEFAULT_TOLERANCE)): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=5, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
+                vol.Required(
+                    CONF_DIRECTION_SWITCH_HYSTERESIS,
+                    default=options.get(
+                        CONF_DIRECTION_SWITCH_HYSTERESIS,
+                        DEFAULT_DIRECTION_SWITCH_HYSTERESIS,
+                    ),
+                ): NumberSelector(NumberSelectorConfig(min=0.0, max=5, step=0.1, mode=NumberSelectorMode.BOX)),
                 vol.Required(CONF_T_TIME, default=options.get(CONF_T_TIME, DEFAULT_T_TIME)): NumberSelector(
                     NumberSelectorConfig(min=30, max=3600, step=10, mode=NumberSelectorMode.BOX)
                 ),

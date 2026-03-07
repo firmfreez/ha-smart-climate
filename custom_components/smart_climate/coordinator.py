@@ -31,6 +31,7 @@ from .const import (
     CONF_COOL_MEDIUM,
     CONF_COOL_OUTDOOR_TARGET_DELTA,
     CONF_DELTA,
+    CONF_DIRECTION_SWITCH_HYSTERESIS,
     CONF_GLOBAL_TARGET,
     CONF_GLOBAL_TOLERANCE,
     CONF_HEAT_BIG,
@@ -530,6 +531,13 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             heat_needed = diff_heat > tolerance
             cool_needed = diff_cool > tolerance
             reached = within_target(runtime.current_temp, target, tolerance)
+            switch_hysteresis = float(self._opt(CONF_DIRECTION_SWITCH_HYSTERESIS) or 0.0)
+            if switch_hysteresis > 0 and runtime.hold_is_heating is not None:
+                switch_threshold = tolerance + switch_hysteresis
+                if runtime.hold_is_heating:
+                    cool_needed = diff_cool > switch_threshold
+                else:
+                    heat_needed = diff_heat > switch_threshold
             softened_offset_on_overshoot = False
             if (
                 runtime.phase == PHASE_HOLD
