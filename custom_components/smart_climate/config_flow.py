@@ -38,6 +38,8 @@ from .const import (
     CONF_HEAT_CATEGORY2_DIFF,
     CONF_HEAT_CATEGORY3_DIFF,
     CONF_HEAT_MEDIUM,
+    CONF_HEAT_ONLY_SHARED_HOLD_EXTRA,
+    CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW,
     CONF_HEAT_OUTDOOR_TARGET_DELTA,
     CONF_HEAT_SMALL,
     CONF_HOLD_OFFSET_DECAY_STEP,
@@ -90,6 +92,8 @@ from .const import (
     DEFAULT_HEAT_CATEGORY2_DIFF,
     DEFAULT_HEAT_CATEGORY3_DIFF,
     DEFAULT_HEAT_MEDIUM,
+    DEFAULT_HEAT_ONLY_SHARED_HOLD_EXTRA,
+    DEFAULT_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW,
     DEFAULT_HEAT_OUTDOOR_TARGET_DELTA,
     DEFAULT_HEAT_SMALL,
     DEFAULT_HOLD_OFFSET_DECAY_STEP,
@@ -318,6 +322,10 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                     CONF_OUTDOOR_MAX_FOR_WEATHER_SENSITIVE: outdoor_max,
                     CONF_COOL_OUTDOOR_TARGET_DELTA: user_input[CONF_COOL_OUTDOOR_TARGET_DELTA],
                     CONF_HEAT_OUTDOOR_TARGET_DELTA: user_input[CONF_HEAT_OUTDOOR_TARGET_DELTA],
+                    CONF_HEAT_ONLY_SHARED_HOLD_EXTRA: user_input[CONF_HEAT_ONLY_SHARED_HOLD_EXTRA],
+                    CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW: user_input[
+                        CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW
+                    ],
                     CONF_AFTER_REACH_SMART: user_input[CONF_AFTER_REACH_SMART],
                     CONF_AFTER_REACH_DUMB: user_input[CONF_AFTER_REACH_DUMB],
                     CONF_SHARED_ARBITRATION: user_input[CONF_SHARED_ARBITRATION],
@@ -422,6 +430,20 @@ class SmartClimateOptionsFlow(config_entries.OptionsFlow):
                         DEFAULT_HEAT_OUTDOOR_TARGET_DELTA,
                     ),
                 ): NumberSelector(NumberSelectorConfig(min=0.0, max=20, step=0.1, mode=NumberSelectorMode.BOX)),
+                vol.Required(
+                    CONF_HEAT_ONLY_SHARED_HOLD_EXTRA,
+                    default=options.get(
+                        CONF_HEAT_ONLY_SHARED_HOLD_EXTRA,
+                        DEFAULT_HEAT_ONLY_SHARED_HOLD_EXTRA,
+                    ),
+                ): NumberSelector(NumberSelectorConfig(min=0.0, max=20, step=0.1, mode=NumberSelectorMode.BOX)),
+                vol.Required(
+                    CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW,
+                    default=options.get(
+                        CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW,
+                        DEFAULT_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW,
+                    ),
+                ): NumberSelector(NumberSelectorConfig(min=-40, max=40, step=0.5, mode=NumberSelectorMode.BOX)),
                 vol.Required(
                     CONF_AFTER_REACH_SMART,
                     default=options.get(CONF_AFTER_REACH_SMART, DEFAULT_AFTER_REACH_SMART),

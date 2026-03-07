@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
-from types import MethodType
+from types import MethodType, SimpleNamespace
 
 if "homeassistant" not in sys.modules:
     ha = types.ModuleType("homeassistant")
@@ -75,6 +75,8 @@ from custom_components.smart_climate.const import (
     CONF_GLOBAL_TOLERANCE,
     CONF_HEAT_CATEGORY2_DIFF,
     CONF_HEAT_CATEGORY3_DIFF,
+    CONF_HEAT_ONLY_SHARED_HOLD_EXTRA,
+    CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW,
     CONF_HEAT_OUTDOOR_TARGET_DELTA,
     CONF_HOLD_OFFSET_DECAY_STEP,
     CONF_MAX_OFFSET,
@@ -262,8 +264,15 @@ def test_shared_priority_room_reduces_setpoint_to_target_when_no_demand() -> Non
     coordinator._room_enabled = MethodType(lambda self, rid: rid == room_id, coordinator)  # type: ignore[attr-defined]
     coordinator._room_target = MethodType(lambda self, rid: 25.0, coordinator)  # type: ignore[attr-defined]
     coordinator._room_tolerance = MethodType(lambda self, rid: 0.3, coordinator)  # type: ignore[attr-defined]
+    coordinator._read_outdoor_temp = MethodType(lambda self: 20.0, coordinator)  # type: ignore[attr-defined]
     coordinator._opt = MethodType(  # type: ignore[attr-defined]
-        lambda self, key: {"shared_arbitration": "priority_room", "priority_room": room_id, "type": "normal"}.get(key),
+        lambda self, key: {
+            "shared_arbitration": "priority_room",
+            "priority_room": room_id,
+            "type": "normal",
+            CONF_HEAT_ONLY_SHARED_HOLD_EXTRA: 7.0,
+            CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW: 10.0,
+        }.get(key),
         coordinator,
     )
 
@@ -300,6 +309,242 @@ def test_shared_priority_room_reduces_setpoint_to_target_when_no_demand() -> Non
     assert call["target"] == 25.0
     # Within tolerance: should drop to target without extra offset and avoid hvac mode flip.
     assert call["offset"] == 0.0
+    assert call["skip_hvac"] is True
+    assert winners == {climate_id: room_id}
+
+
+def test_shared_priority_room_heat_only_does_not_drop_to_target_when_no_demand() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    room_id = "kitchen"
+    climate_id = "climate.floor_shared"
+    calls: list[dict[str, object]] = []
+
+    coordinator._shared_map = {climate_id: [room_id]}  # type: ignore[attr-defined]
+    coordinator._rooms = {  # type: ignore[attr-defined]
+        room_id: RoomConfig(
+            room_id=room_id,
+            name="Kitchen",
+            temp_sensors=["sensor.room"],
+            shared_climates=[climate_id],
+            heat_only_climates=[climate_id],
+        )
+    }
+    coordinator._runtime = {  # type: ignore[attr-defined]
+        room_id: RoomRuntime(
+            enabled=True,
+            current_temp=25.0,
+            target_temp=25.0,
+            tolerance=0.3,
+            current_offset=2.0,
+        )
+    }
+    coordinator._room_enabled = MethodType(lambda self, rid: rid == room_id, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_target = MethodType(lambda self, rid: 25.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_tolerance = MethodType(lambda self, rid: 0.3, coordinator)  # type: ignore[attr-defined]
+    coordinator._read_outdoor_temp = MethodType(lambda self: 0.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._opt = MethodType(  # type: ignore[attr-defined]
+        lambda self, key: {
+            "shared_arbitration": "priority_room",
+            "priority_room": room_id,
+            "type": "normal",
+            CONF_HEAT_ONLY_SHARED_HOLD_EXTRA: 7.0,
+            CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW: 10.0,
+        }.get(key),
+        coordinator,
+    )
+
+    async def _fake_set_climate(
+        self,
+        entity_id: str,
+        target: float,
+        is_heating: bool,
+        control_type: str,
+        offset: float,
+        skip_hvac: bool = False,
+        force_heat_mode: bool = False,
+    ) -> dict[str, object]:
+        calls.append(
+            {
+                "entity_id": entity_id,
+                "target": target,
+                "is_heating": is_heating,
+                "control_type": control_type,
+                "offset": offset,
+                "skip_hvac": skip_hvac,
+                "force_heat_mode": force_heat_mode,
+            }
+        )
+        return {"sent": True, "active": True}
+
+    coordinator._async_set_climate = MethodType(_fake_set_climate, coordinator)  # type: ignore[attr-defined]
+
+    winners = asyncio.run(coordinator._async_apply_shared({}))
+
+    assert calls
+    call = calls[0]
+    assert call["entity_id"] == climate_id
+    assert call["is_heating"] is True
+    assert call["offset"] == 7.0
+    assert call["skip_hvac"] is True
+    assert winners == {climate_id: room_id}
+
+
+def test_shared_priority_room_heat_only_above_target_softly_reduces_floor_setpoint() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    room_id = "kitchen"
+    climate_id = "climate.floor_shared"
+    calls: list[dict[str, object]] = []
+
+    coordinator._shared_map = {climate_id: [room_id]}  # type: ignore[attr-defined]
+    coordinator._rooms = {  # type: ignore[attr-defined]
+        room_id: RoomConfig(
+            room_id=room_id,
+            name="Kitchen",
+            temp_sensors=["sensor.room"],
+            shared_climates=[climate_id],
+            heat_only_climates=[climate_id],
+        )
+    }
+    coordinator._runtime = {  # type: ignore[attr-defined]
+        room_id: RoomRuntime(
+            enabled=True,
+            current_temp=25.2,  # above target, but still within tolerance
+            target_temp=25.0,
+            tolerance=0.3,
+            current_offset=2.0,
+        )
+    }
+    coordinator.hass = SimpleNamespace(  # type: ignore[attr-defined]
+        states=SimpleNamespace(
+            get=lambda entity_id: SimpleNamespace(attributes={"temperature": 32.0})
+            if entity_id == climate_id
+            else None
+        )
+    )
+    coordinator._room_enabled = MethodType(lambda self, rid: rid == room_id, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_target = MethodType(lambda self, rid: 25.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_tolerance = MethodType(lambda self, rid: 0.3, coordinator)  # type: ignore[attr-defined]
+    coordinator._read_outdoor_temp = MethodType(lambda self: 0.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._opt = MethodType(  # type: ignore[attr-defined]
+        lambda self, key: {
+            "shared_arbitration": "priority_room",
+            "priority_room": room_id,
+            "type": "normal",
+            CONF_HEAT_ONLY_SHARED_HOLD_EXTRA: 7.0,
+            CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW: 10.0,
+            CONF_HOLD_OFFSET_DECAY_STEP: 0.5,
+        }.get(key),
+        coordinator,
+    )
+
+    async def _fake_set_climate(
+        self,
+        entity_id: str,
+        target: float,
+        is_heating: bool,
+        control_type: str,
+        offset: float,
+        skip_hvac: bool = False,
+        force_heat_mode: bool = False,
+    ) -> dict[str, object]:
+        calls.append({"entity_id": entity_id, "offset": offset, "is_heating": is_heating, "skip_hvac": skip_hvac})
+        return {"sent": True, "active": True}
+
+    coordinator._async_set_climate = MethodType(_fake_set_climate, coordinator)  # type: ignore[attr-defined]
+
+    winners = asyncio.run(coordinator._async_apply_shared({}))
+
+    assert calls
+    call = calls[0]
+    assert call["entity_id"] == climate_id
+    assert call["is_heating"] is True
+    assert call["offset"] == 6.5
+    assert call["skip_hvac"] is True
+    assert winners == {climate_id: room_id}
+
+
+def test_shared_priority_room_heat_only_reduces_floor_when_other_shared_room_overheated() -> None:
+    coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
+    room_id = "kitchen"
+    other_room_id = "living"
+    climate_id = "climate.floor_shared"
+    calls: list[dict[str, object]] = []
+
+    coordinator._shared_map = {climate_id: [room_id, other_room_id]}  # type: ignore[attr-defined]
+    coordinator._rooms = {  # type: ignore[attr-defined]
+        room_id: RoomConfig(
+            room_id=room_id,
+            name="Kitchen",
+            temp_sensors=["sensor.room1"],
+            shared_climates=[climate_id],
+            heat_only_climates=[climate_id],
+        ),
+        other_room_id: RoomConfig(
+            room_id=other_room_id,
+            name="Living",
+            temp_sensors=["sensor.room2"],
+            shared_climates=[climate_id],
+            heat_only_climates=[climate_id],
+        ),
+    }
+    coordinator._runtime = {  # type: ignore[attr-defined]
+        room_id: RoomRuntime(enabled=True, current_temp=25.0, target_temp=25.0, tolerance=0.3, current_offset=2.0),
+        other_room_id: RoomRuntime(
+            enabled=True,
+            current_temp=24.0,  # overheated vs target 23.0 + tol 0.3
+            target_temp=23.0,
+            tolerance=0.3,
+            current_offset=2.0,
+        ),
+    }
+    coordinator.hass = SimpleNamespace(  # type: ignore[attr-defined]
+        states=SimpleNamespace(
+            get=lambda entity_id: SimpleNamespace(attributes={"temperature": 32.0})
+            if entity_id == climate_id
+            else None
+        )
+    )
+    coordinator._room_enabled = MethodType(lambda self, rid: True, coordinator)  # type: ignore[attr-defined]
+    coordinator._room_target = MethodType(  # type: ignore[attr-defined]
+        lambda self, rid: 25.0 if rid == room_id else 23.0,
+        coordinator,
+    )
+    coordinator._room_tolerance = MethodType(lambda self, rid: 0.3, coordinator)  # type: ignore[attr-defined]
+    coordinator._read_outdoor_temp = MethodType(lambda self: 0.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._opt = MethodType(  # type: ignore[attr-defined]
+        lambda self, key: {
+            "shared_arbitration": "priority_room",
+            "priority_room": room_id,
+            "type": "normal",
+            CONF_HEAT_ONLY_SHARED_HOLD_EXTRA: 7.0,
+            CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW: 10.0,
+            CONF_HOLD_OFFSET_DECAY_STEP: 0.5,
+        }.get(key),
+        coordinator,
+    )
+
+    async def _fake_set_climate(
+        self,
+        entity_id: str,
+        target: float,
+        is_heating: bool,
+        control_type: str,
+        offset: float,
+        skip_hvac: bool = False,
+        force_heat_mode: bool = False,
+    ) -> dict[str, object]:
+        calls.append({"entity_id": entity_id, "offset": offset, "is_heating": is_heating, "skip_hvac": skip_hvac})
+        return {"sent": True, "active": True}
+
+    coordinator._async_set_climate = MethodType(_fake_set_climate, coordinator)  # type: ignore[attr-defined]
+
+    winners = asyncio.run(coordinator._async_apply_shared({}))
+
+    assert calls
+    call = calls[0]
+    assert call["entity_id"] == climate_id
+    assert call["is_heating"] is True
+    assert call["offset"] == 6.5
     assert call["skip_hvac"] is True
     assert winners == {climate_id: room_id}
 
@@ -371,8 +616,15 @@ def test_shared_heat_only_climate_forces_heat_mode() -> None:
     }
     coordinator._room_enabled = MethodType(lambda self, rid: rid == room_id, coordinator)  # type: ignore[attr-defined]
     coordinator._room_target = MethodType(lambda self, rid: 22.0, coordinator)  # type: ignore[attr-defined]
+    coordinator._read_outdoor_temp = MethodType(lambda self: 20.0, coordinator)  # type: ignore[attr-defined]
     coordinator._opt = MethodType(  # type: ignore[attr-defined]
-        lambda self, key: {"shared_arbitration": "max_demand", "type": "normal", "step_offset": 0.5}.get(key, ""),
+        lambda self, key: {
+            "shared_arbitration": "max_demand",
+            "type": "normal",
+            "step_offset": 0.5,
+            CONF_HEAT_ONLY_SHARED_HOLD_EXTRA: 7.0,
+            CONF_HEAT_ONLY_SHARED_HOLD_OUTDOOR_BELOW: 10.0,
+        }.get(key, ""),
         coordinator,
     )
 
