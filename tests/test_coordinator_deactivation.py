@@ -459,7 +459,7 @@ def test_resolve_priority_room_accepts_room_name_and_slug() -> None:
     assert coordinator._resolve_priority_room_id("kitchen") is None
 
 
-def test_mode_off_turns_off_room_and_shared_devices_and_skips_shared_arbitration() -> None:
+def test_mode_off_does_not_touch_devices_and_skips_shared_arbitration() -> None:
     coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
     room_id = "living"
     calls: list[tuple[str, str, str]] = []
@@ -504,9 +504,7 @@ def test_mode_off_turns_off_room_and_shared_devices_and_skips_shared_arbitration
 
     result = asyncio.run(coordinator._async_run_control_cycle())
 
-    assert ("climate.radiator", "climate", "turn_off") in calls
-    assert ("climate.shared_floor", "climate", "turn_off") in calls
-    assert ("script.fireplace_off", "script", "turn_on") in calls
+    assert calls == []
     assert result["shared_winner_rooms"] == {}
 
 

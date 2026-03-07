@@ -476,7 +476,6 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         outdoor_temp = self._read_outdoor_temp()
         room_payload: dict[str, Any] = {}
         shared_demands: dict[str, list[tuple[str, str, float]]] = defaultdict(list)
-        mode_off_shared_climates: set[str] = set()
 
         for room_id, room in self._rooms.items():
             runtime = self._runtime[room_id]
@@ -515,14 +514,6 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 runtime.decision_summary = (
                     "automation disabled: mode off" if mode == MODE_OFF else "room disabled by user"
                 )
-                if mode == MODE_OFF:
-                    mode_off_shared_climates.update(room.shared_climates)
-                    await self._async_turn_off_room_devices(
-                        room,
-                        runtime,
-                        include_shared_climates=False,
-                        reason="mode_off",
-                    )
                 room_payload[room_id] = self._room_payload(
                     room,
                     runtime,
@@ -724,10 +715,7 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
 
         shared_winner_rooms: dict[str, str] = {}
-        if mode == MODE_OFF:
-            for climate_entity in mode_off_shared_climates:
-                await self._async_call_service_entity(climate_entity, "climate", "turn_off")
-        else:
+        if mode != MODE_OFF:
             shared_winner_rooms = await self._async_apply_shared(shared_demands)
 
         return {
@@ -932,51 +920,6 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     entity_id=dumb.off_script,
                     action="turn_on",
                     reason="after_reach_target",
-                )
-
-    async def _async_turn_off_room_devices(
-        self,
-        room: RoomConfig,
-        runtime: RoomRuntime,
-        *,
-        include_shared_climates: bool,
-        reason: str,
-    ) -> None:
-        """Turn off room devices when automation is disabled."""
-        all_climates = {
-            entity_id
-            for entity_id in merge_categories(
-                room.heat_category_1, room.heat_category_2, room.heat_category_3, 3
-            )
-            + merge_categories(room.cool_category_1, room.cool_category_2, room.cool_category_3, 3)
-            if entity_id.startswith("climate.")
-        }
-
-        for climate_entity in all_climates:
-            if not include_shared_climates and climate_entity in room.shared_climates:
-                continue
-            if await self._async_call_service_entity(climate_entity, "climate", "turn_off"):
-                self._log_room_action(
-                    runtime,
-                    entity_id=climate_entity,
-                    action="turn_off",
-                    reason=reason,
-                )
-
-        for dumb in room.dumb_devices:
-            if dumb.participation == DUMB_PARTICIPATION_OFF:
-                continue
-            if not dumb.manage_off_script:
-                continue
-            if dumb.on_script not in self._managed_dumb_on_scripts:
-                continue
-            if await self._async_call_service_entity(dumb.off_script, "script", "turn_on"):
-                self._managed_dumb_on_scripts.discard(dumb.on_script)
-                self._log_room_action(
-                    runtime,
-                    entity_id=dumb.off_script,
-                    action="turn_on",
-                    reason=reason,
                 )
 
     async def _async_apply_shared(self, demands: dict[str, list[tuple[str, str, float]]]) -> dict[str, str]:
