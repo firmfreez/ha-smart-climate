@@ -243,6 +243,76 @@ def test_deactivate_non_active_does_not_turn_off_unmanaged_dumb_devices() -> Non
     assert ("script.fireplace_off", "script", "turn_on") not in calls
 
 
+def test_apply_room_actions_does_not_recall_managed_dumb_on_script() -> None:
+    calls: list[tuple[str, str, str]] = []
+    coordinator = _make_coordinator_with_call_log(calls)
+    coordinator._managed_dumb_on_scripts = {"script.fireplace_on"}  # type: ignore[attr-defined]
+    room = RoomConfig(
+        room_id="room",
+        name="Room",
+        temp_sensors=["sensor.room"],
+        heat_category_1=["script.fireplace_on"],
+        dumb_devices=[
+            DumbDeviceConfig(
+                on_script="script.fireplace_on",
+                off_script="script.fireplace_off",
+                device_type="heat",
+                participation="until_reach_target",
+                category=1,
+            ),
+        ],
+    )
+
+    active = asyncio.run(
+        coordinator._async_apply_room_actions(
+            room=room,
+            runtime=RoomRuntime(target_temp=22.0),
+            is_heating=True,
+            category=1,
+            control_type=TYPE_NORMAL,
+            weather_sensitive_allowed=True,
+        )
+    )
+
+    assert calls == []
+    assert active == ["script.fireplace_on"]
+
+
+def test_apply_room_actions_calls_dumb_on_script_only_once_per_cycle() -> None:
+    calls: list[tuple[str, str, str]] = []
+    coordinator = _make_coordinator_with_call_log(calls)
+    room = RoomConfig(
+        room_id="room",
+        name="Room",
+        temp_sensors=["sensor.room"],
+        heat_category_1=["script.fireplace_on"],
+        dumb_devices=[
+            DumbDeviceConfig(
+                on_script="script.fireplace_on",
+                off_script="script.fireplace_off",
+                device_type="heat",
+                participation="until_reach_target",
+                category=1,
+            ),
+        ],
+    )
+
+    active = asyncio.run(
+        coordinator._async_apply_room_actions(
+            room=room,
+            runtime=RoomRuntime(target_temp=22.0),
+            is_heating=True,
+            category=1,
+            control_type=TYPE_NORMAL,
+            weather_sensitive_allowed=True,
+        )
+    )
+
+    assert calls == [("script.fireplace_on", "script", "turn_on")]
+    assert active == ["script.fireplace_on"]
+    assert coordinator._managed_dumb_on_scripts == {"script.fireplace_on"}  # type: ignore[attr-defined]
+
+
 def test_shared_priority_room_reduces_setpoint_to_target_when_no_demand() -> None:
     coordinator = SmartClimateCoordinator.__new__(SmartClimateCoordinator)
     room_id = "kitchen"

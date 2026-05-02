@@ -837,6 +837,8 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 room.cool_category_1, room.cool_category_2, room.cool_category_3, category
             )
 
+        dumb_on_scripts = {dumb.on_script for dumb in room.dumb_devices}
+
         for entity_id in filter_weather_sensitive(
             category_entities,
             set(room.weather_sensitive_climates),
@@ -866,8 +868,16 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             setpoint=result["setpoint"],
                         )
             elif entity_id.startswith("script."):
+                is_dumb_on_script = entity_id in dumb_on_scripts
+                if is_dumb_on_script and entity_id in self._managed_dumb_on_scripts:
+                    if entity_id not in active:
+                        active.append(entity_id)
+                    continue
                 if await self._async_call_service_entity(entity_id, "script", "turn_on"):
-                    active.append(entity_id)
+                    if is_dumb_on_script:
+                        self._managed_dumb_on_scripts.add(entity_id)
+                    if entity_id not in active:
+                        active.append(entity_id)
                     self._log_room_action(
                         runtime,
                         entity_id=entity_id,
@@ -885,9 +895,14 @@ class SmartClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 participation=dumb.participation,
             ):
                 continue
+            if dumb.on_script in self._managed_dumb_on_scripts:
+                if dumb.on_script not in active:
+                    active.append(dumb.on_script)
+                continue
             if await self._async_call_service_entity(dumb.on_script, "script", "turn_on"):
                 self._managed_dumb_on_scripts.add(dumb.on_script)
-                active.append(dumb.on_script)
+                if dumb.on_script not in active:
+                    active.append(dumb.on_script)
                 self._log_room_action(
                     runtime,
                     entity_id=dumb.on_script,
